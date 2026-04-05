@@ -4,6 +4,7 @@ import LoginPage from './pages/LoginPage'
 import StaffApp from './pages/StaffApp'
 import ManagerApp from './pages/ManagerApp'
 import PurchasingApp from './pages/PurchasingApp'
+import AdminApp from './pages/AdminApp'
 
 export default function App() {
   const [session, setSession] = useState(null)
@@ -51,6 +52,7 @@ export default function App() {
 
   const props = { profile, onLogout: handleLogout }
 
+  if (profile?.role === 'admin') return <AdminApp {...props} />
   if (profile?.role === 'manager') return <ManagerApp {...props} />
   if (profile?.role === 'purchasing') return <PurchasingApp {...props} />
   return <StaffApp {...props} />
