@@ -1,0 +1,39 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --teal: #0D7E7E;
+  --teal-dark: #085A5A;
+  --teal-light: #E0F5F5;
+  --navy: #1A2F4A;
+  --navy-light: #223650;
+  --white: #ffffff;
+  --gray-bg: #F5F8FA;
+  --gray-border: #D8E4EC;
+  --gray-text: #6B7C8A;
+  --amber: #F0A500;
+  --amber-light: #FEF3D7;
+  --green: #1A7A4A;
+  --green-light: #D9F2E6;
+  --red: #B83232;
+  --red-light: #FDEAEA;
+  --blue: #185FA5;
+  --blue-light: #E6F1FB;
+  --font: 'Noto Sans TC', sans-serif;
+  --radius: 8px;
+  --radius-lg: 12px;
+}
+
+body {
+  font-family: var(--font);
+  background: var(--gray-bg);
+  color: var(--navy);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+button { font-family: var(--font); cursor: pointer; }
+input, select, textarea { font-family: var(--font); }
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--gray-border); border-radius: 3px; }
