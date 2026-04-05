@@ -18,7 +18,7 @@ export default function Layout({ profile, onLogout, navItems, activeNav, onNav, 
           onClick={() => onNav(homeNav[profile?.role] || 'catalog')}
           style={{ display:'flex', alignItems:'center', gap:10, cursor:'pointer' }}
         >
-          <div style={{ width:32, height:32, borderRadius:8, overflow:'hidden', background:'#0D7E7E', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+          <div style={{ width:36, height:36, borderRadius:'50%', overflow:'hidden', background:'transparent', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
             <img
               src="/logo.png"
               alt="logo"
