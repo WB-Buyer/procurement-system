@@ -49,8 +49,8 @@ export default function StaffApp({ profile, onLogout }) {
   }
 
   function confirmAddToCart() {
-    if (!reqCount || !stockQty || !stockUnit) { alert('請選擇請購數量、庫存數量與單位') }
-    setCart(prev => [...prev, { ...modalProduct, reqQty: 1, stockInfo: `${stockQty} ${stockUnit}`, itemNote }])
+    if (!reqCount || !stockQty || !stockUnit) { alert('請選擇請購數量、庫存數量與單位（必填）'); return }
+    setCart(prev => [...prev, { ...modalProduct,reqQty: parseInt(reqCount), stockInfo: `${stockQty} ${stockUnit}`, itemNote }])
     setModalProduct(null)
     showToast(`已加入購物車：${modalProduct.name}`)
   }
