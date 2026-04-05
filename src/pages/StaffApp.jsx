@@ -16,6 +16,7 @@ export default function StaffApp({ profile, onLogout }) {
   const [stockQty, setStockQty] = useState('')
   const [stockUnit, setStockUnit] = useState('')
   const [itemNote, setItemNote] = useState('')
+  const [reqCount, setReqCount] = useState('')
   const [submitDate, setSubmitDate] = useState(new Date().toISOString().split('T')[0])
   const [submitNote, setSubmitNote] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -44,10 +45,11 @@ export default function StaffApp({ profile, onLogout }) {
   function openModal(product) {
     setModalProduct(product)
     setStockQty(''); setStockUnit(''); setItemNote('')
+    setReqCount('')
   }
 
   function confirmAddToCart() {
-    if (!stockQty || !stockUnit) { alert('請選擇庫存數量與單位（必填）'); return }
+    if (!reqCount || !stockQty || !stockUnit) { alert('請選擇請購數量、庫存數量與單位') }
     setCart(prev => [...prev, { ...modalProduct, reqQty: 1, stockInfo: `${stockQty} ${stockUnit}`, itemNote }])
     setModalProduct(null)
     showToast(`已加入購物車：${modalProduct.name}`)
@@ -137,7 +139,7 @@ export default function StaffApp({ profile, onLogout }) {
               <div key={p.id} style={{ background:'#fff', border:'1px solid #D8E4EC', borderRadius:12, padding:16 }}>
                 <span style={{ background:'#E0F5F5', color:'#085A5A', fontSize:10, fontWeight:500, padding:'2px 8px', borderRadius:20, display:'inline-block', marginBottom:8 }}>{p.category}</span>
                 <div style={{ fontSize:13, fontWeight:500, marginBottom:4, lineHeight:1.4 }}>{p.name}</div>
-                <div style={{ fontSize:11, color:'#6B7C8A', marginBottom:12 }}>單位：{p.unit}</div>
+                <div style={{ fontSize:11, color:'#6B7C8A', marginBottom:12 }}>請購單位：{p.unit}</div>
                 <button onClick={() => openModal(p)}
                   style={{ width:'100%', background:'#0D7E7E', color:'#fff', border:'none', padding:'7px', borderRadius:7, fontSize:12, cursor:'pointer' }}>
                   加入購物車
@@ -155,6 +157,16 @@ export default function StaffApp({ profile, onLogout }) {
           <div style={{ background:'#fff', borderRadius:14, padding:24, width:360, maxWidth:'90vw' }}>
             <h3 style={{ fontSize:15, fontWeight:700, marginBottom:4 }}>加入購物車</h3>
             <p style={{ fontSize:12, color:'#6B7C8A', marginBottom:18 }}>{modalProduct.name}</p>
+            <div style={{ marginBottom:14 }}>
+  <label style={{ fontSize:12, color:'#6B7C8A', display:'block', marginBottom:6 }}>
+    請購數量 <span style={{ color:'#B83232' }}>★ 必填</span>
+  </label>
+  <select value={reqCount} onChange={e => setReqCount(e.target.value)}
+    style={{ width:'100%', padding:'8px 10px', border:'1px solid #D8E4EC', borderRadius:7, fontSize:13 }}>
+    <option value="">選擇數量</option>
+    {Array.from({length:100}, (_, i) => i + 1).map(n => <option key={n}>{n}</option>)}
+  </select>
+</div>
             <div style={{ marginBottom:14 }}>
               <label style={{ fontSize:12, color:'#6B7C8A', display:'block', marginBottom:6 }}>
                 目前庫存數量 <span style={{ color:'#B83232' }}>★ 必填</span>

@@ -13,7 +13,7 @@ export default function Layout({ profile, onLogout, navItems, activeNav, onNav, 
               <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/>
             </svg>
           </div>
-          <span style={{ color:'#fff', fontWeight:700, fontSize:14 }}>醫美門市請購系統</span>
+          <span style={{ color:'#fff', fontWeight:700, fontSize:14 }}>晶緻集團請購系統</span>
         </div>
         <div style={{ display:'flex', alignItems:'center', gap:12 }}>
           <span style={{ background: roleColor[profile?.role], color: roleText[profile?.role], fontSize:11, fontWeight:500, padding:'3px 10px', borderRadius:20 }}>

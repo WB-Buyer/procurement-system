@@ -25,7 +25,7 @@ export default function LoginPage() {
               <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/>
             </svg>
           </div>
-          <h1 style={{ fontSize:20, fontWeight:700, color:'#1A2F4A', marginBottom:4 }}>醫美門市請購系統</h1>
+          <h1 style={{ fontSize:20, fontWeight:700, color:'#1A2F4A', marginBottom:4 }}>晶緻集團請購系統</h1>
           <p style={{ fontSize:13, color:'#6B7C8A' }}>請輸入帳號密碼登入</p>
         </div>
 
