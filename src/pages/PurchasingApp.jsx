@@ -42,41 +42,74 @@ export default function PurchasingApp({ profile, onLogout }) {
     return req.requisition_items?.reduce((sum, i) => sum + (i.products?.price || 0) * i.quantity, 0) || 0
   }
 
-  async function exportPDF(req) {
-    const { jsPDF } = await import('jspdf')
-    const autoTable = (await import('jspdf-autotable')).default
-    const doc = new jsPDF()
-
-    doc.setFont('helvetica')
-    doc.setFontSize(16)
-    doc.text('Purchase Order', 14, 20)
-    doc.setFontSize(10)
-    doc.text(`Order ID: ${req.id.slice(0,8).toUpperCase()}`, 14, 30)
-    doc.text(`Store: ${req.store_name || '-'}`, 14, 37)
-    doc.text(`Date: ${req.submit_date || '-'}`, 14, 44)
-    doc.text(`Status: Ordered`, 14, 51)
-
-    const rows = req.requisition_items?.map(i => [
-      i.products?.name || '-',
-      i.products?.category || '-',
-      i.quantity,
-      i.products?.unit || '-',
-      `NT$ ${(i.products?.price || 0).toLocaleString()}`,
-      `NT$ ${((i.products?.price || 0) * i.quantity).toLocaleString()}`,
-      `${i.stock_qty} ${i.stock_unit}`,
-      i.item_note || '-'
-    ]) || []
-
-    autoTable(doc, {
-      startY: 58,
-      head: [['品項名稱', '類別', '數量', '單位', '單價', '小計', '庫存', '備註']],
-      body: rows,
-      foot: [[{ content: `總計：NT$ ${calcTotal(req).toLocaleString()}`, colSpan: 8, styles: { halign: 'right', fontStyle: 'bold' } }]],
-      styles: { fontSize: 9 },
-      headStyles: { fillColor: [13, 126, 126] }
-    })
-
-    doc.save(`order-${req.id.slice(0,8)}.pdf`)
+  function exportPDF(req) {
+    const total = calcTotal(req)
+    const printWindow = window.open('', '_blank')
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <title>訂購單 ${req.id.slice(0,8).toUpperCase()}</title>
+        <style>
+          body { font-family: 'Microsoft JhengHei', '微軟正黑體', Arial, sans-serif; padding: 40px; color: #1A2F4A; }
+          h1 { font-size: 22px; margin-bottom: 6px; }
+          .info { font-size: 13px; color: #6B7C8A; margin-bottom: 24px; line-height: 2; }
+          table { width: 100%; border-collapse: collapse; font-size: 13px; }
+          th { background: #0D7E7E; color: #fff; padding: 10px 12px; text-align: left; }
+          td { padding: 9px 12px; border-bottom: 1px solid #D8E4EC; }
+          tr:nth-child(even) td { background: #F5F8FA; }
+          .total { text-align: right; font-size: 15px; font-weight: bold; color: #185FA5; margin-top: 16px; }
+          .footer { margin-top: 40px; font-size: 12px; color: #6B7C8A; border-top: 1px solid #D8E4EC; padding-top: 12px; }
+          @media print { button { display: none; } }
+        </style>
+      </head>
+      <body>
+        <h1>晶緻集團請購系統 — 訂購單</h1>
+        <div class="info">
+          訂單編號：${req.id.slice(0,8).toUpperCase()}<br>
+          門市：${req.store_name || '-'}<br>
+          送單日期：${req.submit_date || '-'}<br>
+          狀態：已訂購
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>品項名稱</th>
+              <th>類別</th>
+              <th>數量</th>
+              <th>單位</th>
+              <th>單價</th>
+              <th>小計</th>
+              <th>庫存</th>
+              <th>備註</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${req.requisition_items?.map(i => `
+              <tr>
+                <td>${i.products?.name || '-'}</td>
+                <td>${i.products?.category || '-'}</td>
+                <td>${i.quantity}</td>
+                <td>${i.products?.unit || '-'}</td>
+                <td>NT$ ${(i.products?.price || 0).toLocaleString()}</td>
+                <td>NT$ ${((i.products?.price || 0) * i.quantity).toLocaleString()}</td>
+                <td>${i.stock_qty} ${i.stock_unit}</td>
+                <td>${i.item_note || '-'}</td>
+              </tr>
+            `).join('') || ''}
+          </tbody>
+        </table>
+        <div class="total">訂單總計：NT$ ${total.toLocaleString()}</div>
+        <div class="footer">列印日期：${new Date().toLocaleDateString('zh-TW')}</div>
+        <br>
+        <button onclick="window.print()" style="background:#0D7E7E;color:#fff;border:none;padding:10px 24px;border-radius:8px;font-size:14px;cursor:pointer;margin-top:12px;">
+          列印 / 儲存 PDF
+        </button>
+      </body>
+      </html>
+    `)
+    printWindow.document.close()
   }
 
   const stats = {
@@ -116,7 +149,6 @@ export default function PurchasingApp({ profile, onLogout }) {
     <Layout profile={profile} onLogout={onLogout} navItems={navItems} activeNav={nav} onNav={setNav}>
       {toast && <div style={{ background:'#1A2F4A', color:'#fff', padding:'10px 16px', borderRadius:8, fontSize:13, marginBottom:16 }}>{toast}</div>}
 
-      {/* DASHBOARD */}
       {nav === 'dashboard' && (
         <div>
           <h2 style={{ fontSize:18, fontWeight:700, marginBottom:16 }}>統計儀表板</h2>
@@ -157,7 +189,6 @@ export default function PurchasingApp({ profile, onLogout }) {
         </div>
       )}
 
-      {/* ORDER LIST (toorder / all) */}
       {(nav === 'toorder' || nav === 'all') && (
         <div>
           <h2 style={{ fontSize:18, fontWeight:700, marginBottom:16 }}>
