@@ -1,20 +1,37 @@
 export default function Layout({ profile, onLogout, navItems, activeNav, onNav, children }) {
-  const roleLabel = { staff:'門市員工', manager:'門市店長', purchasing:'採購人員' }
-  const roleColor = { staff:'#E0F5F5', manager:'#E6F1FB', purchasing:'#FEF3D7' }
-  const roleText = { staff:'#085A5A', manager:'#0C447C', purchasing:'#633806' }
+  const roleLabel = { staff:'門市員工', manager:'門市店長', purchasing:'採購人員', admin:'超級管理員' }
+  const roleColor = { staff:'#E0F5F5', manager:'#E6F1FB', purchasing:'#FEF3D7', admin:'#FEF3D7' }
+  const roleText = { staff:'#085A5A', manager:'#0C447C', purchasing:'#633806', admin:'#633806' }
+
+  const homeNav = {
+    staff: 'catalog',
+    manager: 'pending',
+    purchasing: 'dashboard',
+    admin: 'dashboard'
+  }
 
   return (
     <div style={{ display:'flex', flexDirection:'column', height:'100vh', overflow:'hidden' }}>
-      {/* Top bar */}
       <div style={{ background:'#1A2F4A', padding:'0 20px', display:'flex', alignItems:'center', justifyContent:'space-between', height:52, flexShrink:0 }}>
-        <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-          <div style={{ width:28, height:28, background:'#0D7E7E', borderRadius:6, display:'flex', alignItems:'center', justifyContent:'center' }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/>
-            </svg>
+        
+        <div
+          onClick={() => onNav(homeNav[profile?.role] || 'catalog')}
+          style={{ display:'flex', alignItems:'center', gap:10, cursor:'pointer' }}
+        >
+          <div style={{ width:32, height:32, borderRadius:8, overflow:'hidden', background:'#0D7E7E', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+            <img
+              src="/logo.png"
+              alt="logo"
+              style={{ width:'100%', height:'100%', objectFit:'cover' }}
+              onError={e => {
+                e.target.style.display = 'none'
+                e.target.parentNode.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/></svg>`
+              }}
+            />
           </div>
           <span style={{ color:'#fff', fontWeight:700, fontSize:14 }}>晶緻集團請購系統</span>
         </div>
+
         <div style={{ display:'flex', alignItems:'center', gap:12 }}>
           <span style={{ background: roleColor[profile?.role], color: roleText[profile?.role], fontSize:11, fontWeight:500, padding:'3px 10px', borderRadius:20 }}>
             {roleLabel[profile?.role]}
@@ -28,7 +45,6 @@ export default function Layout({ profile, onLogout, navItems, activeNav, onNav, 
       </div>
 
       <div style={{ display:'flex', flex:1, overflow:'hidden' }}>
-        {/* Side nav */}
         <div style={{ width:180, background:'#fff', borderRight:'1px solid #D8E4EC', padding:'12px 0', flexShrink:0, overflowY:'auto' }}>
           {navItems.map(item => (
             <div key={item.id} onClick={() => onNav(item.id)}
@@ -49,7 +65,6 @@ export default function Layout({ profile, onLogout, navItems, activeNav, onNav, 
           ))}
         </div>
 
-        {/* Main content */}
         <div style={{ flex:1, overflowY:'auto', padding:24, background:'#F5F8FA' }}>
           {children}
         </div>
