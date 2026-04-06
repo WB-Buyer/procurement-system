@@ -172,8 +172,7 @@ export default function StaffApp({ profile, onLogout }) {
           <div style={{ background:C.white, borderRadius:14, padding:24, width:380, maxWidth:'90vw' }}>
             <h3 style={{ fontSize:15, fontWeight:700, marginBottom:4, color:C.text }}>加入購物車</h3>
             <p style={{ fontSize:12, color:C.textMuted, marginBottom:6 }}>{modalProduct.name}</p>
-            <p style={{ fontSize:12, color:C.primaryDark, marginBottom:18 }}>請購單位：{modalProduct.unit}</p>
-
+           
             <div style={{ marginBottom:14 }}>
               <label style={{ fontSize:12, color:C.textMuted, display:'block', marginBottom:6 }}>
                 請購數量<span style={{ color:C.red }}>★ 必填</span>
