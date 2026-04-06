@@ -16,8 +16,19 @@ function generateOrderId(createdAt, seq) {
   const y = d.getFullYear()
   const m = String(d.getMonth() + 1).padStart(2, '0')
   const day = String(d.getDate()).padStart(2, '0')
-  const seqStr = String(seq).padStart(2, '0')
-  return `#${y}${m}${day}-${seqStr}`
+  return `#${y}${m}${day}-${String(seq).padStart(2, '0')}`
+}
+
+const NOTIFY_EMAIL = 'wb25236700@gmail.com'
+
+async function sendNotification(subject, body) {
+  try {
+    await supabase.functions.invoke('send-email', {
+      body: { to: NOTIFY_EMAIL, subject, body }
+    })
+  } catch (e) {
+    console.log('Email notification skipped:', e.message)
+  }
 }
 
 export default function StaffApp({ profile, onLogout }) {
@@ -92,6 +103,12 @@ export default function StaffApp({ profile, onLogout }) {
       item_note: item.itemNote || ''
     }))
     await supabase.from('requisition_items').insert(items)
+
+    await sendNotification(
+      `【晶緻集團請購系統】新請購單通知`,
+      `${profile.store_name} ${profile.full_name} 已送出請購單，共 ${cart.length} 項品項，請店長審核。`
+    )
+
     setCart([]); setSubmitNote(''); setSubmitting(false)
     showToast('請購單已送出！等待店長審核')
     setNav('myreqs')
@@ -116,10 +133,6 @@ export default function StaffApp({ profile, onLogout }) {
     { id:'myreqs', icon:'📋', label:'我的請購' },
   ]
 
-  const btn = (label, onClick, style={}) => (
-    <button onClick={onClick} style={{ padding:'7px 16px', borderRadius:7, fontSize:12, cursor:'pointer', border:'none', ...style }}>{label}</button>
-  )
-
   return (
     <Layout profile={profile} onLogout={onLogout} navItems={navItems} activeNav={nav} onNav={setNav}>
       {toast && <div style={{ background:C.text, color:'#fff', padding:'10px 16px', borderRadius:8, fontSize:13, marginBottom:16 }}>{toast}</div>}
@@ -141,7 +154,7 @@ export default function StaffApp({ profile, onLogout }) {
               </button>
             ))}
           </div>
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(200px, 1fr))', gap:12 }}>
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(210px, 1fr))', gap:12 }}>
             {filtered.map(p => (
               <div key={p.id} style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:12, overflow:'hidden' }}>
                 {p.image_url
@@ -152,8 +165,15 @@ export default function StaffApp({ profile, onLogout }) {
                 }
                 <div style={{ padding:'12px 14px' }}>
                   <span style={{ background:C.primaryLight, color:C.primaryDark, fontSize:10, fontWeight:500, padding:'2px 8px', borderRadius:20, display:'inline-block', marginBottom:8 }}>{p.category}</span>
-                  <div style={{ fontSize:13, fontWeight:500, marginBottom:4, lineHeight:1.4, color:C.text }}>{p.name}</div>
-                  <div style={{ fontSize:11, color:C.textMuted, marginBottom:12 }}>請購單位：{p.unit}</div>
+                  <div style={{ fontSize:13, fontWeight:500, marginBottom:6, lineHeight:1.4, color:C.text }}>{p.name}</div>
+
+                  {/* 四行補充資訊 */}
+                  <div style={{ fontSize:11, color:C.textMuted, marginBottom:2 }}>廠牌：{p.brand || '-'}</div>
+                  <div style={{ fontSize:11, color:C.textMuted, marginBottom:2 }}>規格：{p.spec || '-'}</div>
+                  <div style={{ fontSize:11, color:C.textMuted, marginBottom:2 }}>效期：{p.expiry_info || '-'}</div>
+                  <div style={{ fontSize:11, color:C.textMuted, marginBottom:10 }}>補充說明：{p.extra_note || '-'}</div>
+
+                  <div style={{ fontSize:11, color:C.primaryDark, marginBottom:10 }}>請購單位：{p.unit}</div>
                   <button onClick={() => openModal(p)}
                     style={{ width:'100%', background:C.primary, color:C.white, border:'none', padding:'7px', borderRadius:7, fontSize:12, cursor:'pointer' }}>
                     加入購物車
@@ -171,11 +191,11 @@ export default function StaffApp({ profile, onLogout }) {
         <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.4)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000 }}>
           <div style={{ background:C.white, borderRadius:14, padding:24, width:380, maxWidth:'90vw' }}>
             <h3 style={{ fontSize:15, fontWeight:700, marginBottom:4, color:C.text }}>加入購物車</h3>
-            <p style={{ fontSize:12, color:C.textMuted, marginBottom:6 }}>{modalProduct.name}</p>
-           
+            <p style={{ fontSize:12, color:C.textMuted, marginBottom:18 }}>{modalProduct.name}</p>
+
             <div style={{ marginBottom:14 }}>
               <label style={{ fontSize:12, color:C.textMuted, display:'block', marginBottom:6 }}>
-                請購數量<span style={{ color:C.red }}>★ 必填</span>
+                請購數量 <span style={{ color:C.red }}>★ 必填</span>
               </label>
               <div style={{ display:'flex', gap:8 }}>
                 <select value={reqCount} onChange={e => setReqCount(e.target.value)}

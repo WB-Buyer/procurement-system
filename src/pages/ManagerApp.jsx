@@ -16,6 +16,18 @@ function generateOrderId(createdAt, seq) {
   return `#${y}${m}${day}-${String(seq).padStart(2, '0')}`
 }
 
+const NOTIFY_EMAIL = 'wb25236700@gmail.com'
+
+async function sendNotification(subject, body) {
+  try {
+    await supabase.functions.invoke('send-email', {
+      body: { to: NOTIFY_EMAIL, subject, body }
+    })
+  } catch (e) {
+    console.log('Email notification skipped:', e.message)
+  }
+}
+
 export default function ManagerApp({ profile, onLogout }) {
   const [nav, setNav] = useState('pending')
   const [reqs, setReqs] = useState([])
@@ -34,18 +46,22 @@ export default function ManagerApp({ profile, onLogout }) {
       .select('*, requisition_items(*, products(name, unit))')
       .order('created_at', { ascending: false })
     setAllReqs(all || [])
-    if (nav === 'pending') {
-      setReqs((all || []).filter(r => r.status === 'pending'))
-    } else {
-      setReqs(all || [])
-    }
+    setReqs(nav === 'pending' ? (all || []).filter(r => r.status === 'pending') : (all || []))
     setLoading(false)
   }
 
   function showToast(msg) { setToast(msg); setTimeout(() => setToast(''), 2500) }
 
-  async function approve(id) {
-    await supabase.from('requisitions').update({ status: 'manager_approved', approved_at: new Date().toISOString() }).eq('id', id)
+  async function approve(id, req, idx) {
+    const now = new Date().toISOString()
+    await supabase.from('requisitions').update({ status: 'manager_approved', approved_at: now }).eq('id', id)
+
+    const orderId = generateOrderId(req.created_at, idx + 1)
+    await sendNotification(
+      `【晶緻集團請購系統】請購單已核准，待採購確認`,
+      `店長已核准請購單 ${orderId}（${req.store_name}），共 ${req.requisition_items?.length || 0} 項品項，請採購人員確認訂購。`
+    )
+
     showToast('已核准，轉送採購確認')
     fetchReqs()
   }
@@ -67,7 +83,7 @@ export default function ManagerApp({ profile, onLogout }) {
   }
 
   const navItems = [
-    { id:'pending', icon:'📥', label:'待審核', badge: allReqs.filter(r=>r.status==='pending').length },
+    { id:'pending', icon:'📥', label:'待審核', badge: allReqs.filter(r => r.status === 'pending').length },
     { id:'history', icon:'📋', label:'歷史紀錄' },
   ]
 
@@ -97,7 +113,6 @@ export default function ManagerApp({ profile, onLogout }) {
         </div>
 
         {req.note && <div style={{ fontSize:12, color:C.textMuted, marginBottom:10 }}>備註：{req.note}</div>}
-
         {req.status === 'rejected' && req.reject_reason && (
           <div style={{ background:C.redLight, color:C.red, padding:'6px 10px', borderRadius:6, fontSize:12, marginBottom:10 }}>退回原因：{req.reject_reason}</div>
         )}
@@ -105,7 +120,7 @@ export default function ManagerApp({ profile, onLogout }) {
         {showActions && req.status === 'pending' && (
           <div>
             <div style={{ display:'flex', gap:8 }}>
-              <button onClick={() => approve(req.id)}
+              <button onClick={() => approve(req.id, req, idx)}
                 style={{ background:C.green, color:C.white, border:'none', padding:'7px 16px', borderRadius:7, fontSize:12, cursor:'pointer' }}>
                 核准
               </button>
