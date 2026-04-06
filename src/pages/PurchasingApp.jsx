@@ -228,26 +228,26 @@ export default function PurchasingApp({ profile, onLogout }) {
           <div style={{ fontSize:12, color:C.textMuted, marginBottom:4 }}>品項：</div>
 
           {/* Table header */}
-          <div style={{ display:'grid', gridTemplateColumns:'2fr 100px 140px 90px auto', gap:8, padding:'4px 12px', background:C.primaryLight, borderRadius:6, marginBottom:4, fontSize:11, color:C.primaryDark, fontWeight:500 }}>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 100px 130px 100px 130px', gap:8, padding:'4px 12px', background:C.primaryLight, marginBottom:4, fontSize:11, color:C.primaryDark, fontWeight:500 }}>
             <span>品項名稱</span>
             <span style={{ textAlign:'center' }}>採購數量</span>
-            <span>庫存數量</span>
+            <span style={{ textAlign:'center' }}>庫存數量</span>
             <span style={{ textAlign:'right' }}>金額</span>
             {isActionable && <span style={{ textAlign:'center' }}>採購說明</span>}
           </div>
 
           {visibleItems.map((i, ii) => (
-            <div key={ii} style={{ display:'grid', gridTemplateColumns:'2fr 100px 140px 90px auto', gap:8, padding:'6px 12px', borderLeft:`2px solid ${C.border}`, marginBottom:3, alignItems:'center' }}>
+            <div key={ii} style={{ display:'grid', gridTemplateColumns:'1fr 100px 130px 100px 130px', gap:8, padding:'6px 12px', borderLeft:`2px solid ${C.border}`, marginBottom:3, alignItems:'center' }}>
               <span style={{ fontSize:12, color:C.text }}>{i.products?.name}</span>
               <span style={{ fontSize:12, color:C.text, textAlign:'center' }}>×{i.quantity} {i.products?.unit}</span>
-              <span style={{ fontSize:12, color:C.textMuted }}>庫存：{i.stock_qty} {i.stock_unit}</span>
+              <span style={{ fontSize:12, color:C.textMuted, textAlign:'center' }}>庫存：{i.stock_qty} {i.stock_unit}</span>
               <span style={{ fontSize:12, color:C.blue, fontWeight:500, textAlign:'right' }}>NT$ {((i.products?.price || 0) * i.quantity).toLocaleString()}</span>
               {isActionable && (
                 <input
                   value={getItemNote(req.id, i.id)}
                   onChange={e => setItemNote(req.id, i.id, e.target.value)}
                   placeholder="採購說明..."
-                  style={{ fontSize:11, padding:'4px 8px', border:`1px solid ${C.border}`, borderRadius:5, color:C.text, width:120 }}
+                  style={{ fontSize:11, padding:'4px 8px', border:`1px solid ${C.border}`, borderRadius:5, color:C.text, width:'100%' }}
                 />
               )}
               {!isActionable && <span style={{ fontSize:11, color:C.textMuted }}>{getItemNote(req.id, i.id) || '-'}</span>}
