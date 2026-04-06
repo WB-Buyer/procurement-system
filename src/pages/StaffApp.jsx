@@ -176,7 +176,7 @@ export default function StaffApp({ profile, onLogout }) {
 
             <div style={{ marginBottom:14 }}>
               <label style={{ fontSize:12, color:C.textMuted, display:'block', marginBottom:6 }}>
-                請購數量 + 單位 <span style={{ color:C.red }}>★ 必填</span>
+                請購數量<span style={{ color:C.red }}>★ 必填</span>
               </label>
               <div style={{ display:'flex', gap:8 }}>
                 <select value={reqCount} onChange={e => setReqCount(e.target.value)}
