@@ -20,11 +20,12 @@ function generateOrderId(createdAt, seq) {
 function formatDateTime(iso) {
   if (!iso) return '-'
   const d = new Date(iso)
-  const y = d.getFullYear()
-  const mo = String(d.getMonth()+1).padStart(2,'0')
-  const day = String(d.getDate()).padStart(2,'0')
-  const h = String(d.getHours()).padStart(2,'0')
-  const mi = String(d.getMinutes()).padStart(2,'0')
+  const tw = new Date(d.getTime() + 8 * 60 * 60 * 1000)
+  const y = tw.getUTCFullYear()
+  const mo = String(tw.getUTCMonth() + 1).padStart(2, '0')
+  const day = String(tw.getUTCDate()).padStart(2, '0')
+  const h = String(tw.getUTCHours()).padStart(2, '0')
+  const mi = String(tw.getUTCMinutes()).padStart(2, '0')
   return `${y}/${mo}/${day} ${h}:${mi}`
 }
 
