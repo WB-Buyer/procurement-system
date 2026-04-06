@@ -28,10 +28,10 @@ export default function Layout({ profile, onLogout, navItems, activeNav, onNav, 
 
   return (
     <div style={{ display:'flex', flexDirection:'column', height:'100vh', overflow:'hidden' }}>
-      <div style={{ background:C.topbar, padding:'0 20px', display:'flex', alignItems:'center', justifyContent:'space-between', height:52, flexShrink:0 }}>
+      <div style={{ background:C.primaryLight, padding:'0 20px', display:'flex', alignItems:'center', justifyContent:'space-between', height:52, flexShrink:0, borderBottom:`1px solid ${C.border}` }}>
         <div style={{ display:'flex', alignItems:'center', gap:10 }}>
           <button onClick={() => setCollapsed(p => !p)}
-            style={{ background:'transparent', border:'none', color:'#C4B1A0', cursor:'pointer', padding:'4px 6px', borderRadius:6, fontSize:18, lineHeight:1, display:'flex', alignItems:'center' }}>
+            style={{ background:'transparent', border:'none', color:C.primaryDark, cursor:'pointer', padding:'4px 6px', borderRadius:6, fontSize:18, lineHeight:1, display:'flex', alignItems:'center' }}>
             {collapsed ? '☰' : '✕'}
           </button>
           <div onClick={() => onNav(homeNav[profile?.role] || 'catalog')}
@@ -40,7 +40,7 @@ export default function Layout({ profile, onLogout, navItems, activeNav, onNav, 
               <img src="/logo.png" alt="logo" style={{ width:'100%', height:'100%', objectFit:'cover' }}
                 onError={e => { e.target.style.display='none'; e.target.parentNode.innerHTML=`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#C4B1A0" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/></svg>` }} />
             </div>
-            <span style={{ color:'#EDE5DC', fontWeight:700, fontSize:14 }}>晶緻集團請購系統</span>
+            <span style={{ color:C.text, fontWeight:700, fontSize:14 }}>晶緻集團請購系統</span>
           </div>
         </div>
         <div style={{ display:'flex', alignItems:'center', gap:12 }}>
