@@ -37,6 +37,7 @@ export default function PurchasingApp({ profile, onLogout }) {
   const [rejectReason, setRejectReason] = useState('')
   const [expandedIds, setExpandedIds] = useState({})
   const [itemNotes, setItemNotes] = useState({})
+  const itemNotesRef = React.useRef({})
   const [toast, setToast] = useState('')
 
   useEffect(() => { fetchAll() }, [])
@@ -75,13 +76,14 @@ export default function PurchasingApp({ profile, onLogout }) {
     setExpandedIds(prev => ({ ...prev, [id]: !prev[id] }))
   }
 
-  function setItemNote(reqId, itemId, val) {
-    setItemNotes(prev => ({ ...prev, [`${reqId}-${itemId}`]: val }))
+  function setItemNote(key, val) {
+  itemNotesRef.current[key] = val
+  }
+  function getItemNote(reqId, itemId) {
+  return itemNotesRef.current[`${reqId}-${itemId}`] || ''
   }
 
-  function getItemNote(reqId, itemId) {
-    return itemNotes[`${reqId}-${itemId}`] || ''
-  }
+  
 
   function exportPDF(req, seqIdx) {
     const total = calcTotal(req)
@@ -244,8 +246,8 @@ export default function PurchasingApp({ profile, onLogout }) {
               <span style={{ fontSize:12, color:C.blue, fontWeight:500, textAlign:'right' }}>NT$ {((i.products?.price || 0) * i.quantity).toLocaleString()}</span>
               {isActionable && (
                 <input
-                  value={getItemNote(req.id, i.id)}
-                  onChange={e => setItemNote(req.id, i.id, e.target.value)}
+                  defaultValue={getItemNote(req.id, i.id)}
+                  onChange={e => setItemNote(`${req.id}-${i.id}`, e.target.value)}
                   placeholder="採購說明..."
                   style={{ fontSize:11, padding:'4px 8px', border:`1px solid ${C.border}`, borderRadius:5, color:C.text, width:'100%' }}
                 />
