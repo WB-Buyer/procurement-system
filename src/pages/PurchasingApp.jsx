@@ -29,6 +29,24 @@ function formatDateTime(iso) {
   return `${y}/${mo}/${day} ${h}:${mi}`
 }
 
+function NoteInput({ reqId, itemId, defaultNote, onSave }) {
+  const [val, setVal] = useState(defaultNote || '')
+
+  useEffect(() => {
+    setVal(defaultNote || '')
+  }, [defaultNote])
+
+  return (
+    <input
+      value={val}
+      onChange={e => setVal(e.target.value)}
+      onBlur={() => onSave(reqId, itemId, val)}
+      placeholder="採購說明..."
+      style={{ fontSize:11, padding:'4px 8px', border:`1px solid ${C.border}`, borderRadius:5, color:C.text, width:'100%' }}
+    />
+  )
+}
+
 export default function PurchasingApp({ profile, onLogout }) {
   const [nav, setNav] = useState('dashboard')
   const [allReqs, setAllReqs] = useState([])
@@ -36,8 +54,6 @@ export default function PurchasingApp({ profile, onLogout }) {
   const [rejectingId, setRejectingId] = useState(null)
   const [rejectReason, setRejectReason] = useState('')
   const [expandedIds, setExpandedIds] = useState({})
-  const [itemNotes, setItemNotes] = useState({})
-  const itemNotesRef = useRef({})
   const [toast, setToast] = useState('')
 
   useEffect(() => { fetchAll() }, [])
@@ -54,18 +70,22 @@ export default function PurchasingApp({ profile, onLogout }) {
 
   function showToast(msg) { setToast(msg); setTimeout(() => setToast(''), 2500) }
 
+  async function saveItemNote(reqId, itemId, note) {
+    await supabase.from('requisition_items')
+      .update({ purchase_note: note })
+      .eq('id', itemId)
+    setAllReqs(prev => prev.map(req => {
+      if (req.id !== reqId) return req
+      return {
+        ...req,
+        requisition_items: req.requisition_items.map(i =>
+          i.id === itemId ? { ...i, purchase_note: note } : i
+        )
+      }
+    }))
+  }
+
   async function confirmOrder(req) {
-    const updates = req.requisition_items?.map(i => ({
-      id: i.id,
-      purchase_note: itemNotesRef.current[`${req.id}-${i.id}`] || i.purchase_note || ''
-    })) || []
-
-    for (const u of updates) {
-      await supabase.from('requisition_items')
-        .update({ purchase_note: u.purchase_note })
-        .eq('id', u.id)
-    }
-
     await supabase.from('requisitions').update({ status: 'ordered' }).eq('id', req.id)
     showToast('已確認訂購')
     fetchAll()
@@ -86,15 +106,6 @@ export default function PurchasingApp({ profile, onLogout }) {
   function toggleExpand(id) {
     setExpandedIds(prev => ({ ...prev, [id]: !prev[id] }))
   }
-
-  function setItemNote(key, val) {
-  itemNotesRef.current[key] = val
-  }
-  function getItemNote(reqId, itemId, dbNote) {
-    return itemNotesRef.current[`${reqId}-${itemId}`] || dbNote || ''
-  }
-
-  
 
   function exportPDF(req, seqIdx) {
     const total = calcTotal(req)
@@ -239,14 +250,12 @@ export default function PurchasingApp({ profile, onLogout }) {
 
         <div style={{ marginBottom:10 }}>
           <div style={{ fontSize:12, color:C.textMuted, marginBottom:4 }}>品項：</div>
-
-          {/* Table header */}
           <div style={{ display:'grid', gridTemplateColumns:'1fr 100px 130px 100px 130px', gap:8, padding:'4px 12px', background:C.primaryLight, marginBottom:4, fontSize:11, color:C.primaryDark, fontWeight:500 }}>
             <span>品項名稱</span>
             <span style={{ textAlign:'center' }}>採購數量</span>
             <span style={{ textAlign:'center' }}>庫存數量</span>
             <span style={{ textAlign:'right' }}>金額</span>
-            {isActionable && <span style={{ textAlign:'center' }}>採購說明</span>}
+            <span style={{ textAlign:'center' }}>採購說明</span>
           </div>
 
           {visibleItems.map((i, ii) => (
@@ -255,15 +264,16 @@ export default function PurchasingApp({ profile, onLogout }) {
               <span style={{ fontSize:12, color:C.text, textAlign:'center' }}>×{i.quantity} {i.products?.unit}</span>
               <span style={{ fontSize:12, color:C.textMuted, textAlign:'center' }}>庫存：{i.stock_qty} {i.stock_unit}</span>
               <span style={{ fontSize:12, color:C.blue, fontWeight:500, textAlign:'right' }}>NT$ {((i.products?.price || 0) * i.quantity).toLocaleString()}</span>
-              {isActionable && (
-                <input
-                  defaultValue={getItemNote(req.id, i.id, i.purchase_note)}
-                  onChange={e => setItemNote(`${req.id}-${i.id}`, e.target.value)}
-                  placeholder="採購說明..."
-                  style={{ fontSize:11, padding:'4px 8px', border:`1px solid ${C.border}`, borderRadius:5, color:C.text, width:'100%' }}
-                />
-              )}
-              {!isActionable && <span style={{ fontSize:11, color:C.textMuted }}>{getItemNote(req.id, i.id, i.purchase_note) || '-'}</span>}
+              {isActionable
+                ? <NoteInput
+                    key={`${req.id}-${i.id}`}
+                    reqId={req.id}
+                    itemId={i.id}
+                    defaultNote={i.purchase_note || ''}
+                    onSave={saveItemNote}
+                  />
+                : <span style={{ fontSize:11, color:C.textMuted }}>{i.purchase_note || '-'}</span>
+              }
             </div>
           ))}
 
