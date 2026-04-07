@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import Layout from '../components/Layout'
 
@@ -31,11 +31,7 @@ function formatDateTime(iso) {
 
 function NoteInput({ reqId, itemId, defaultNote, onSave }) {
   const [val, setVal] = useState(defaultNote || '')
-
-  useEffect(() => {
-    setVal(defaultNote || '')
-  }, [defaultNote])
-
+  useEffect(() => { setVal(defaultNote || '') }, [defaultNote])
   return (
     <input
       value={val}
@@ -71,9 +67,7 @@ export default function PurchasingApp({ profile, onLogout }) {
   function showToast(msg) { setToast(msg); setTimeout(() => setToast(''), 2500) }
 
   async function saveItemNote(reqId, itemId, note) {
-    await supabase.from('requisition_items')
-      .update({ purchase_note: note })
-      .eq('id', itemId)
+    await supabase.from('requisition_items').update({ purchase_note: note }).eq('id', itemId)
     setAllReqs(prev => prev.map(req => {
       if (req.id !== reqId) return req
       return {
@@ -250,6 +244,7 @@ export default function PurchasingApp({ profile, onLogout }) {
 
         <div style={{ marginBottom:10 }}>
           <div style={{ fontSize:12, color:C.textMuted, marginBottom:4 }}>品項：</div>
+
           <div style={{ display:'grid', gridTemplateColumns:'1fr 100px 130px 100px 130px', gap:8, padding:'4px 12px', background:C.primaryLight, marginBottom:4, fontSize:11, color:C.primaryDark, fontWeight:500 }}>
             <span>品項名稱</span>
             <span style={{ textAlign:'center' }}>採購數量</span>
@@ -272,7 +267,7 @@ export default function PurchasingApp({ profile, onLogout }) {
                     defaultNote={i.purchase_note || ''}
                     onSave={saveItemNote}
                   />
-                : <span style={{ fontSize:11, color:C.textMuted }}>{i.purchase_note || '-'}</span>
+                : <span style={{ fontSize:11, color:C.textMuted, textAlign:'center' }}>{i.purchase_note || '-'}</span>
               }
             </div>
           ))}
