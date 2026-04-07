@@ -54,8 +54,19 @@ export default function PurchasingApp({ profile, onLogout }) {
 
   function showToast(msg) { setToast(msg); setTimeout(() => setToast(''), 2500) }
 
-  async function confirmOrder(id) {
-    await supabase.from('requisitions').update({ status: 'ordered' }).eq('id', id)
+  async function confirmOrder(req) {
+    const updates = req.requisition_items?.map(i => ({
+      id: i.id,
+      purchase_note: itemNotesRef.current[`${req.id}-${i.id}`] || i.purchase_note || ''
+    })) || []
+
+    for (const u of updates) {
+      await supabase.from('requisition_items')
+        .update({ purchase_note: u.purchase_note })
+        .eq('id', u.id)
+    }
+
+    await supabase.from('requisitions').update({ status: 'ordered' }).eq('id', req.id)
     showToast('已確認訂購')
     fetchAll()
   }
@@ -79,8 +90,8 @@ export default function PurchasingApp({ profile, onLogout }) {
   function setItemNote(key, val) {
   itemNotesRef.current[key] = val
   }
-  function getItemNote(reqId, itemId) {
-  return itemNotesRef.current[`${reqId}-${itemId}`] || ''
+  function getItemNote(reqId, itemId, dbNote) {
+    return itemNotesRef.current[`${reqId}-${itemId}`] || dbNote || ''
   }
 
   
@@ -123,7 +134,7 @@ export default function PurchasingApp({ profile, onLogout }) {
           <td>${i.stock_qty} ${i.stock_unit}</td>
           <td>NT$ ${(i.products?.price || 0).toLocaleString()}</td>
           <td>NT$ ${((i.products?.price || 0) * i.quantity).toLocaleString()}</td>
-          <td>${itemNotes[`${req.id}-${i.id}`] || '-'}</td>
+          <td>${i.purchase_note || '-'}</td>
         </tr>`).join('') || ''}
       </tbody></table>
       <div class="total">總金額：NT$ ${total.toLocaleString()}</div>
@@ -146,7 +157,7 @@ export default function PurchasingApp({ profile, onLogout }) {
       i.stock_unit,
       i.products?.price || 0,
       (i.products?.price || 0) * i.quantity,
-      itemNotes[`${req.id}-${i.id}`] || ''
+      i.purchase_note || ''
     ]) || []
 
     const infoRows = [
@@ -246,13 +257,13 @@ export default function PurchasingApp({ profile, onLogout }) {
               <span style={{ fontSize:12, color:C.blue, fontWeight:500, textAlign:'right' }}>NT$ {((i.products?.price || 0) * i.quantity).toLocaleString()}</span>
               {isActionable && (
                 <input
-                  defaultValue={getItemNote(req.id, i.id)}
+                  defaultValue={getItemNote(req.id, i.id, i.purchase_note)}
                   onChange={e => setItemNote(`${req.id}-${i.id}`, e.target.value)}
                   placeholder="採購說明..."
                   style={{ fontSize:11, padding:'4px 8px', border:`1px solid ${C.border}`, borderRadius:5, color:C.text, width:'100%' }}
                 />
               )}
-              {!isActionable && <span style={{ fontSize:11, color:C.textMuted }}>{getItemNote(req.id, i.id) || '-'}</span>}
+              {!isActionable && <span style={{ fontSize:11, color:C.textMuted }}>{getItemNote(req.id, i.id, i.purchase_note) || '-'}</span>}
             </div>
           ))}
 
@@ -271,7 +282,7 @@ export default function PurchasingApp({ profile, onLogout }) {
         {req.status === 'manager_approved' && (
           <div>
             <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
-              <button onClick={() => confirmOrder(req.id)}
+              <button onClick={() => confirmOrder(req)}
                 style={{ background:C.blue, color:C.white, border:'none', padding:'7px 16px', borderRadius:7, fontSize:12, cursor:'pointer' }}>確認訂購</button>
               <button onClick={() => exportPDF(req, idx)}
                 style={{ background:C.primaryLight, color:C.text, border:`1px solid ${C.border}`, padding:'7px 16px', borderRadius:7, fontSize:12, cursor:'pointer' }}>輸出 PDF</button>
