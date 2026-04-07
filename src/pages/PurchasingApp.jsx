@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import Layout from '../components/Layout'
 
@@ -37,7 +37,7 @@ export default function PurchasingApp({ profile, onLogout }) {
   const [rejectReason, setRejectReason] = useState('')
   const [expandedIds, setExpandedIds] = useState({})
   const [itemNotes, setItemNotes] = useState({})
-  const itemNotesRef = React.useRef({})
+  const itemNotesRef = useRef({})
   const [toast, setToast] = useState('')
 
   useEffect(() => { fetchAll() }, [])
