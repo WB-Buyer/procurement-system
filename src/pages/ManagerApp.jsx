@@ -32,7 +32,7 @@ export default function ManagerApp({ profile, onLogout }) {
     setLoading(true)
     const { data: all } = await supabase
       .from('requisitions')
-      .select('*, requisition_items(*, products(name, unit, price))')
+      .select('*, requisition_items(*, products(name, unit, price, spec))')
       .order('created_at', { ascending: false })
     setAllReqs(all || [])
     setReqs(nav === 'pending' ? (all || []).filter(r => r.status === 'pending') : (all || []))
@@ -104,8 +104,9 @@ export default function ManagerApp({ profile, onLogout }) {
 
         {/* 品項表格 header */}
         <div style={{ fontSize:12, color:C.textMuted, marginBottom:6 }}>品項：</div>
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 90px 110px 90px 90px', gap:8, padding:'5px 10px', background:C.primaryLight, borderRadius:6, marginBottom:4, fontSize:11, color:C.primaryDark, fontWeight:500 }}>
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 100px 90px 110px 90px 90px', gap:8, padding:'5px 10px', background:C.primaryLight, borderRadius:6, marginBottom:4, fontSize:11, color:C.primaryDark, fontWeight:500 }}>
           <span>品項名稱</span>
+          <span>規格</span>
           <span style={{ textAlign:'center' }}>請購數量</span>
           <span style={{ textAlign:'center' }}>庫存數量</span>
           <span style={{ textAlign:'right' }}>金額</span>
@@ -114,8 +115,9 @@ export default function ManagerApp({ profile, onLogout }) {
 
         {/* 品項列表 */}
         {visibleItems.map((i, ii) => (
-          <div key={ii} style={{ display:'grid', gridTemplateColumns:'1fr 90px 110px 90px 90px', gap:8, padding:'6px 10px', borderLeft:`2px solid ${C.border}`, marginBottom:3, alignItems:'start' }}>
+          <div key={ii} style={{ display:'grid', gridTemplateColumns:'1fr 100px 90px 110px 90px 90px', gap:8, padding:'6px 10px', borderLeft:`2px solid ${C.border}`, marginBottom:3, alignItems:'start' }}>
             <span style={{ fontSize:12, color:C.text }}>{i.products?.name}</span>
+            <span style={{ fontSize:11, color:C.textMuted }}>{i.products?.spec || '-'}</span>
             <span style={{ fontSize:12, color:C.text, textAlign:'center' }}>×{i.quantity} {i.products?.unit}</span>
             <span style={{ fontSize:12, color:C.textMuted, textAlign:'center' }}>
               {i.stock_qty} {i.stock_unit}
