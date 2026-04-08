@@ -156,7 +156,7 @@ export default function PurchasingApp({ profile, onLogout }) {
     { id:'all', icon:'📋', label:'全部訂單' },
   ]
 
-  const COLS = '1fr 100px 80px 70px 80px 120px 90px 130px'
+  const COLS = '1fr 100px 80px 90px 120px 90px 130px'
 
   const ReqCard = ({ req, idx }) => {
     const s = statusStyle[req.status] || statusStyle.pending
@@ -192,8 +192,7 @@ export default function PurchasingApp({ profile, onLogout }) {
             <span>規格</span>
             <span style={{ textAlign:'center' }}>採購數量</span>
             <span style={{ textAlign:'center' }}>庫存數量</span>
-            <span style={{ textAlign:'center' }}>庫存單位</span>
-            <span>備註/請購原因</span>
+            <span style={{ textAlign:'center' }}>備註/請購原因</span>
             <span style={{ textAlign:'right' }}>金額</span>
             <span style={{ textAlign:'center' }}>採購說明</span>
           </div>
@@ -202,9 +201,8 @@ export default function PurchasingApp({ profile, onLogout }) {
               <span style={{ fontSize:12, color:C.text }}>{i.products?.name}</span>
               <span style={{ fontSize:11, color:C.textMuted }}>{i.products?.spec || '-'}</span>
               <span style={{ fontSize:12, color:C.text, textAlign:'center' }}>×{i.quantity} {i.products?.unit}</span>
-              <span style={{ fontSize:12, color:C.textMuted, textAlign:'center' }}>{i.stock_qty}</span>
-              <span style={{ fontSize:12, color:C.textMuted, textAlign:'center' }}>{i.stock_unit}</span>
-              <span style={{ fontSize:11, color:C.textMuted, wordBreak:'break-all' }}>{i.item_note || '-'}</span>
+              <span style={{ fontSize:12, color:C.textMuted, textAlign:'center' }}>{i.stock_qty} {i.stock_unit}</span>
+              <span style={{ fontSize:11, color:C.textMuted, textAlign:'center', wordBreak:'break-all' }}>{i.item_note || '-'}</span>
               <span style={{ fontSize:12, color:C.blue, fontWeight:500, textAlign:'right' }}>NT$ {((i.products?.price||0)*i.quantity).toLocaleString()}</span>
               {isActionable
                 ? <NoteInput key={`${req.id}-${i.id}`} reqId={req.id} itemId={i.id} defaultNote={i.purchase_note||''} onSave={saveItemNote} />
