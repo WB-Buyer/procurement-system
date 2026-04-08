@@ -72,7 +72,7 @@ export default function StaffApp({ profile, onLogout }) {
 
   function confirmAddToCart() {
     if (!reqCount || !stockQty) { alert('請選擇請購數量與庫存數量（必填）'); return }
-    setCart(prev => [...prev, { ...modalProduct, reqQty: parseInt(reqCount), stockInfo: `${stockQty} ${modalProduct.unit}`, itemNote }])
+    setCart(prev => [...prev, { ...modalProduct, reqQty: parseInt(reqCount), stockInfo: `${stockQty} ${modalProduct.stock_unit || modalProduct.unit}`, itemNote }])
     setModalProduct(null)
     showToast(`已加入購物車：${modalProduct.name}`)
   }
@@ -220,7 +220,7 @@ export default function StaffApp({ profile, onLogout }) {
                   {Array.from({length:500}, (_, i) => i + 1).map(n => <option key={n}>{n}</option>)}
                 </select>
                 <div style={{ padding:'8px 12px', background:C.primaryLight, borderRadius:7, fontSize:13, color:C.primaryDark, display:'flex', alignItems:'center', flexShrink:0 }}>
-                  {modalProduct.unit}
+                  {modalProduct.stock_unit || modalProduct.unit}
                 </div>
               </div>
             </div>
