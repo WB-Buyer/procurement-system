@@ -105,88 +105,30 @@ export default function PurchasingApp({ profile, onLogout }) {
     const total = calcTotal(req)
     const orderId = generateOrderId(req.created_at, seqIdx + 1)
     const printWindow = window.open('', '_blank')
-    printWindow.document.write(`
-      <!DOCTYPE html><html><head>
-      <meta charset="UTF-8">
-      <title>訂購單 ${orderId}</title>
-      <style>
-        body { font-family: 'Microsoft JhengHei','微軟正黑體',Arial,sans-serif; padding:40px; color:#3D3530; }
-        h1 { font-size:22px; margin-bottom:6px; color:#A59482; }
-        .info { font-size:13px; color:#A59482; margin-bottom:24px; line-height:2; }
-        table { width:100%; border-collapse:collapse; font-size:12px; }
-        th { background:#C4B1A0; color:#fff; padding:8px 10px; text-align:left; }
-        td { padding:8px 10px; border-bottom:1px solid #D9CEC5; color:#3D3530; }
-        tr:nth-child(even) td { background:#F7F3EF; }
-        .total { text-align:right; font-size:15px; font-weight:bold; color:#A59482; margin-top:16px; }
-        .footer { margin-top:40px; font-size:12px; color:#A59482; border-top:1px solid #D9CEC5; padding-top:12px; }
-        @media print { button { display:none; } }
-      </style></head><body>
-      <h1>晶緻集團請購系統 — 訂購單</h1>
-      <div class="info">
-        成立編號：${orderId}<br>
-        門市：${req.store_name || '-'}<br>
-        送單日期：${req.submit_date || '-'}<br>
-        簽核時間：${formatDateTime(req.approved_at)}<br>
-        狀態：已訂購
-      </div>
-      <table><thead><tr>
-        <th>品項名稱</th><th>採購數量</th><th>單位</th><th>庫存</th><th>單價</th><th>小計</th><th>採購說明</th>
-      </tr></thead><tbody>
-        ${req.requisition_items?.map(i => `<tr>
-          <td>${i.products?.name || '-'}</td>
-          <td>${i.quantity}</td>
-          <td>${i.products?.unit || '-'}</td>
-          <td>${i.stock_qty} ${i.stock_unit}</td>
-          <td>NT$ ${(i.products?.price || 0).toLocaleString()}</td>
-          <td>NT$ ${((i.products?.price || 0) * i.quantity).toLocaleString()}</td>
-          <td>${i.purchase_note || '-'}</td>
-        </tr>`).join('') || ''}
-      </tbody></table>
-      <div class="total">總金額：NT$ ${total.toLocaleString()}</div>
-      <div class="footer">列印日期：${new Date().toLocaleDateString('zh-TW')}</div>
-      <br><button onclick="window.print()" style="background:#C4B1A0;color:#fff;border:none;padding:10px 24px;border-radius:8px;font-size:14px;cursor:pointer;">
-        列印 / 儲存 PDF
-      </button></body></html>`)
+    printWindow.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>訂購單 ${orderId}</title><style>body{font-family:'Microsoft JhengHei','微軟正黑體',Arial,sans-serif;padding:40px;color:#3D3530;}h1{font-size:22px;margin-bottom:6px;color:#A59482;}.info{font-size:13px;color:#A59482;margin-bottom:24px;line-height:2;}table{width:100%;border-collapse:collapse;font-size:12px;}th{background:#C4B1A0;color:#fff;padding:8px 10px;text-align:left;}td{padding:8px 10px;border-bottom:1px solid #D9CEC5;color:#3D3530;}tr:nth-child(even) td{background:#F7F3EF;}.total{text-align:right;font-size:15px;font-weight:bold;color:#A59482;margin-top:16px;}.footer{margin-top:40px;font-size:12px;color:#A59482;border-top:1px solid #D9CEC5;padding-top:12px;}@media print{button{display:none;}}</style></head><body><h1>晶緻集團請購系統 — 訂購單</h1><div class="info">成立編號：${orderId}<br>門市：${req.store_name || '-'}<br>送單日期：${req.submit_date || '-'}<br>簽核時間：${formatDateTime(req.approved_at)}<br>狀態：已訂購</div><table><thead><tr><th>品項名稱</th><th>採購數量</th><th>單位</th><th>庫存數量</th><th>庫存單位</th><th>備註/請購原因</th><th>單價</th><th>小計</th><th>採購說明</th></tr></thead><tbody>${req.requisition_items?.map(i => `<tr><td>${i.products?.name||'-'}</td><td>${i.quantity}</td><td>${i.products?.unit||'-'}</td><td>${i.stock_qty}</td><td>${i.stock_unit}</td><td>${i.item_note||'-'}</td><td>NT$ ${(i.products?.price||0).toLocaleString()}</td><td>NT$ ${((i.products?.price||0)*i.quantity).toLocaleString()}</td><td>${i.purchase_note||'-'}</td></tr>`).join('')||''}</tbody></table><div class="total">總金額：NT$ ${total.toLocaleString()}</div><div class="footer">列印日期：${new Date().toLocaleDateString('zh-TW')}</div><br><button onclick="window.print()" style="background:#C4B1A0;color:#fff;border:none;padding:10px 24px;border-radius:8px;font-size:14px;cursor:pointer;">列印 / 儲存 PDF</button></body></html>`)
     printWindow.document.close()
   }
 
   function exportExcel(req, seqIdx) {
     const orderId = generateOrderId(req.created_at, seqIdx + 1)
     const total = calcTotal(req)
-    const headers = ['品項名稱', '採購數量', '單位', '庫存數量', '庫存單位', '單價', '小計', '採購說明']
+    const headers = ['品項名稱','採購數量','單位','庫存數量','庫存單位','備註/請購原因','單價','小計','採購說明']
     const rows = req.requisition_items?.map(i => [
-      i.products?.name || '-',
-      i.quantity,
-      i.products?.unit || '-',
-      i.stock_qty,
-      i.stock_unit,
-      i.products?.price || 0,
-      (i.products?.price || 0) * i.quantity,
-      i.purchase_note || ''
+      i.products?.name||'-', i.quantity, i.products?.unit||'-',
+      i.stock_qty, i.stock_unit, i.item_note||'',
+      i.products?.price||0, (i.products?.price||0)*i.quantity, i.purchase_note||''
     ]) || []
-
     const infoRows = [
-      [`成立編號：${orderId}`],
-      [`門市：${req.store_name || '-'}`],
-      [`送單日期：${req.submit_date || '-'}`],
-      [`簽核時間：${formatDateTime(req.approved_at)}`],
-      [],
-      headers,
-      ...rows,
-      [],
-      [`總金額：NT$ ${total.toLocaleString()}`]
+      [`成立編號：${orderId}`],[`門市：${req.store_name||'-'}`],
+      [`送單日期：${req.submit_date||'-'}`],[`簽核時間：${formatDateTime(req.approved_at)}`],
+      [],headers,...rows,[],[`總金額：NT$ ${total.toLocaleString()}`]
     ]
-
-    const csvContent = infoRows.map(row =>
-      row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')
-    ).join('\n')
-
-    const BOM = '\uFEFF'
-    const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' })
+    const csvContent = infoRows.map(row => row.map(cell => `"${String(cell).replace(/"/g,'""')}"`).join(',')).join('\n')
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `訂購單-${orderId.replace('#', '')}.csv`
+    a.download = `訂購單-${orderId.replace('#','')}.csv`
     a.click()
     URL.revokeObjectURL(url)
   }
@@ -208,12 +150,13 @@ export default function PurchasingApp({ profile, onLogout }) {
   }
 
   const displayReqs = nav === 'toorder' ? allReqs.filter(r => r.status === 'manager_approved') : allReqs
-
   const navItems = [
     { id:'dashboard', icon:'📊', label:'統計儀表板' },
     { id:'toorder', icon:'📥', label:'待採購', badge: stats.toOrder },
     { id:'all', icon:'📋', label:'全部訂單' },
   ]
+
+  const COLS = '1fr 80px 70px 80px 130px 90px 140px'
 
   const ReqCard = ({ req, idx }) => {
     const s = statusStyle[req.status] || statusStyle.pending
@@ -228,7 +171,7 @@ export default function PurchasingApp({ profile, onLogout }) {
 
     return (
       <div style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:12, padding:16 }}>
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:8 }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:10 }}>
           <div>
             <div style={{ fontSize:13, fontWeight:500, color:C.text }}>成立編號：{orderId}</div>
             {(nav === 'toorder' || nav === 'all') && (
@@ -243,35 +186,30 @@ export default function PurchasingApp({ profile, onLogout }) {
         </div>
 
         <div style={{ marginBottom:10 }}>
-          <div style={{ fontSize:12, color:C.textMuted, marginBottom:4 }}>品項：</div>
-
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 100px 130px 100px 130px', gap:8, padding:'4px 12px', background:C.primaryLight, marginBottom:4, fontSize:11, color:C.primaryDark, fontWeight:500 }}>
+          <div style={{ fontSize:12, color:C.textMuted, marginBottom:6 }}>品項：</div>
+          <div style={{ display:'grid', gridTemplateColumns:COLS, gap:6, padding:'5px 10px', background:C.primaryLight, borderRadius:6, marginBottom:4, fontSize:11, color:C.primaryDark, fontWeight:500 }}>
             <span>品項名稱</span>
             <span style={{ textAlign:'center' }}>採購數量</span>
             <span style={{ textAlign:'center' }}>庫存數量</span>
+            <span style={{ textAlign:'center' }}>庫存單位</span>
+            <span>備註/請購原因</span>
             <span style={{ textAlign:'right' }}>金額</span>
             <span style={{ textAlign:'center' }}>採購說明</span>
           </div>
-
           {visibleItems.map((i, ii) => (
-            <div key={ii} style={{ display:'grid', gridTemplateColumns:'1fr 100px 130px 100px 130px', gap:8, padding:'6px 12px', borderLeft:`2px solid ${C.border}`, marginBottom:3, alignItems:'center' }}>
+            <div key={ii} style={{ display:'grid', gridTemplateColumns:COLS, gap:6, padding:'6px 10px', borderLeft:`2px solid ${C.border}`, marginBottom:3, alignItems:'center' }}>
               <span style={{ fontSize:12, color:C.text }}>{i.products?.name}</span>
               <span style={{ fontSize:12, color:C.text, textAlign:'center' }}>×{i.quantity} {i.products?.unit}</span>
-              <span style={{ fontSize:12, color:C.textMuted, textAlign:'center' }}>庫存：{i.stock_qty} {i.stock_unit}</span>
-              <span style={{ fontSize:12, color:C.blue, fontWeight:500, textAlign:'right' }}>NT$ {((i.products?.price || 0) * i.quantity).toLocaleString()}</span>
+              <span style={{ fontSize:12, color:C.textMuted, textAlign:'center' }}>{i.stock_qty}</span>
+              <span style={{ fontSize:12, color:C.textMuted, textAlign:'center' }}>{i.stock_unit}</span>
+              <span style={{ fontSize:11, color:C.textMuted, wordBreak:'break-all' }}>{i.item_note || '-'}</span>
+              <span style={{ fontSize:12, color:C.blue, fontWeight:500, textAlign:'right' }}>NT$ {((i.products?.price||0)*i.quantity).toLocaleString()}</span>
               {isActionable
-                ? <NoteInput
-                    key={`${req.id}-${i.id}`}
-                    reqId={req.id}
-                    itemId={i.id}
-                    defaultNote={i.purchase_note || ''}
-                    onSave={saveItemNote}
-                  />
+                ? <NoteInput key={`${req.id}-${i.id}`} reqId={req.id} itemId={i.id} defaultNote={i.purchase_note||''} onSave={saveItemNote} />
                 : <span style={{ fontSize:11, color:C.textMuted, textAlign:'center' }}>{i.purchase_note || '-'}</span>
               }
             </div>
           ))}
-
           {hasMore && (
             <button onClick={() => toggleExpand(req.id)}
               style={{ background:'transparent', border:`1px solid ${C.border}`, color:C.primaryDark, padding:'4px 12px', borderRadius:20, fontSize:11, cursor:'pointer', marginTop:4 }}>
@@ -287,25 +225,18 @@ export default function PurchasingApp({ profile, onLogout }) {
         {req.status === 'manager_approved' && (
           <div>
             <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
-              <button onClick={() => confirmOrder(req)}
-                style={{ background:C.blue, color:C.white, border:'none', padding:'7px 16px', borderRadius:7, fontSize:12, cursor:'pointer' }}>確認訂購</button>
-              <button onClick={() => exportPDF(req, idx)}
-                style={{ background:C.primaryLight, color:C.text, border:`1px solid ${C.border}`, padding:'7px 16px', borderRadius:7, fontSize:12, cursor:'pointer' }}>輸出 PDF</button>
-              <button onClick={() => exportExcel(req, idx)}
-                style={{ background:'#1A7A4A', color:C.white, border:'none', padding:'7px 16px', borderRadius:7, fontSize:12, cursor:'pointer' }}>輸出 Excel</button>
-              <button onClick={() => { setRejectingId(rejectingId === req.id ? null : req.id); setRejectReason('') }}
-                style={{ background:C.white, color:C.red, border:'1px solid #F09595', padding:'7px 16px', borderRadius:7, fontSize:12, cursor:'pointer' }}>退回</button>
+              <button onClick={() => confirmOrder(req)} style={{ background:C.blue, color:C.white, border:'none', padding:'7px 16px', borderRadius:7, fontSize:12, cursor:'pointer' }}>確認訂購</button>
+              <button onClick={() => exportPDF(req, idx)} style={{ background:C.primaryLight, color:C.text, border:`1px solid ${C.border}`, padding:'7px 16px', borderRadius:7, fontSize:12, cursor:'pointer' }}>輸出 PDF</button>
+              <button onClick={() => exportExcel(req, idx)} style={{ background:'#1A7A4A', color:C.white, border:'none', padding:'7px 16px', borderRadius:7, fontSize:12, cursor:'pointer' }}>輸出 Excel</button>
+              <button onClick={() => { setRejectingId(rejectingId === req.id ? null : req.id); setRejectReason('') }} style={{ background:C.white, color:C.red, border:'1px solid #F09595', padding:'7px 16px', borderRadius:7, fontSize:12, cursor:'pointer' }}>退回</button>
             </div>
             {rejectingId === req.id && (
               <div style={{ marginTop:10 }}>
-                <textarea value={rejectReason} onChange={e => setRejectReason(e.target.value)}
-                  placeholder="請填寫退回原因..." rows={2}
+                <textarea value={rejectReason} onChange={e => setRejectReason(e.target.value)} placeholder="請填寫退回原因..." rows={2}
                   style={{ width:'100%', padding:'8px 10px', border:`1px solid ${C.border}`, borderRadius:7, fontSize:13, resize:'none', color:C.text }} />
                 <div style={{ display:'flex', gap:8, marginTop:6 }}>
-                  <button onClick={() => rejectOrder(req.id)}
-                    style={{ background:C.red, color:C.white, border:'none', padding:'6px 14px', borderRadius:7, fontSize:12, cursor:'pointer' }}>確認退回</button>
-                  <button onClick={() => setRejectingId(null)}
-                    style={{ background:C.primaryLight, border:`1px solid ${C.border}`, padding:'6px 14px', borderRadius:7, fontSize:12, cursor:'pointer', color:C.text }}>取消</button>
+                  <button onClick={() => rejectOrder(req.id)} style={{ background:C.red, color:C.white, border:'none', padding:'6px 14px', borderRadius:7, fontSize:12, cursor:'pointer' }}>確認退回</button>
+                  <button onClick={() => setRejectingId(null)} style={{ background:C.primaryLight, border:`1px solid ${C.border}`, padding:'6px 14px', borderRadius:7, fontSize:12, cursor:'pointer', color:C.text }}>取消</button>
                 </div>
               </div>
             )}
@@ -314,14 +245,8 @@ export default function PurchasingApp({ profile, onLogout }) {
 
         {req.status === 'ordered' && (
           <div style={{ display:'flex', gap:8 }}>
-            <button onClick={() => exportPDF(req, idx)}
-              style={{ background:C.primaryLight, color:C.text, border:`1px solid ${C.border}`, padding:'7px 16px', borderRadius:7, fontSize:12, cursor:'pointer' }}>
-              重新輸出 PDF
-            </button>
-            <button onClick={() => exportExcel(req, idx)}
-              style={{ background:'#1A7A4A', color:C.white, border:'none', padding:'7px 16px', borderRadius:7, fontSize:12, cursor:'pointer' }}>
-              重新輸出 Excel
-            </button>
+            <button onClick={() => exportPDF(req, idx)} style={{ background:C.primaryLight, color:C.text, border:`1px solid ${C.border}`, padding:'7px 16px', borderRadius:7, fontSize:12, cursor:'pointer' }}>重新輸出 PDF</button>
+            <button onClick={() => exportExcel(req, idx)} style={{ background:'#1A7A4A', color:C.white, border:'none', padding:'7px 16px', borderRadius:7, fontSize:12, cursor:'pointer' }}>重新輸出 Excel</button>
           </div>
         )}
       </div>
@@ -351,7 +276,7 @@ export default function PurchasingApp({ profile, onLogout }) {
           </div>
           <h3 style={{ fontSize:14, fontWeight:500, color:C.textMuted, marginBottom:12 }}>近期請購單</h3>
           <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-            {allReqs.slice(0, 5).map((req, idx) => <ReqCard key={req.id} req={req} idx={idx} />)}
+            {allReqs.slice(0,5).map((req, idx) => <ReqCard key={req.id} req={req} idx={idx} />)}
           </div>
         </div>
       )}
