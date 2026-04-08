@@ -73,10 +73,18 @@ export default function ManagerApp({ profile, onLogout }) {
     { id:'history', icon:'📋', label:'歷史紀錄' },
   ]
 
+  const [expandedIds, setExpandedIds] = useState({})
+  function toggleExpand(id) { setExpandedIds(prev => ({ ...prev, [id]: !prev[id] })) }
+
   const ReqCard = ({ req, idx, showActions }) => {
     const s = statusStyle[req.status] || statusStyle.pending
     const orderId = generateOrderId(req.created_at, idx + 1)
     const total = calcTotal(req)
+    const items = req.requisition_items || []
+    const LIMIT = 5
+    const isExpanded = expandedIds[req.id]
+    const visibleItems = isExpanded ? items : items.slice(0, LIMIT)
+    const hasMore = items.length > LIMIT
 
     return (
       <div style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:12, padding:16 }}>
@@ -105,7 +113,7 @@ export default function ManagerApp({ profile, onLogout }) {
         </div>
 
         {/* 品項列表 */}
-        {req.requisition_items?.map((i, ii) => (
+        {visibleItems.map((i, ii) => (
           <div key={ii} style={{ display:'grid', gridTemplateColumns:'1fr 90px 110px 90px 90px', gap:8, padding:'6px 10px', borderLeft:`2px solid ${C.border}`, marginBottom:3, alignItems:'start' }}>
             <span style={{ fontSize:12, color:C.text }}>{i.products?.name}</span>
             <span style={{ fontSize:12, color:C.text, textAlign:'center' }}>×{i.quantity} {i.products?.unit}</span>
@@ -120,6 +128,12 @@ export default function ManagerApp({ profile, onLogout }) {
             </span>
           </div>
         ))}
+        {hasMore && (
+          <button onClick={() => toggleExpand(req.id)}
+            style={{ background:'transparent', border:`1px solid ${C.border}`, color:C.primaryDark, padding:'4px 12px', borderRadius:20, fontSize:11, cursor:'pointer', marginTop:4 }}>
+            {isExpanded ? '▲ 收合' : `▼ 展開全部 ${items.length} 項`}
+          </button>
+        )}
 
         {/* 總金額 */}
         <div style={{ textAlign:'right', fontSize:13, fontWeight:500, color:C.blue, marginTop:10, paddingTop:8, borderTop:`1px solid ${C.border}` }}>
