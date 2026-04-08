@@ -71,8 +71,8 @@ export default function StaffApp({ profile, onLogout }) {
   }
 
   function confirmAddToCart() {
-    if (!reqCount || !stockQty || !stockUnit) { alert('請選擇請購數量、庫存數量與單位（必填）'); return }
-    setCart(prev => [...prev, { ...modalProduct, reqQty: parseInt(reqCount), stockInfo: `${stockQty} ${stockUnit}`, itemNote }])
+    if (!reqCount || !stockQty) { alert('請選擇請購數量與庫存數量（必填）'); return }
+    setCart(prev => [...prev, { ...modalProduct, reqQty: parseInt(reqCount), stockInfo: `${stockQty} ${modalProduct.unit}`, itemNote }])
     setModalProduct(null)
     showToast(`已加入購物車：${modalProduct.name}`)
   }
@@ -219,11 +219,9 @@ export default function StaffApp({ profile, onLogout }) {
                   <option value="">選擇數量</option>
                   {Array.from({length:500}, (_, i) => i + 1).map(n => <option key={n}>{n}</option>)}
                 </select>
-                <select value={stockUnit} onChange={e => setStockUnit(e.target.value)}
-                  style={{ flex:1, padding:'8px 10px', border:`1px solid ${C.border}`, borderRadius:7, fontSize:13, color:C.text }}>
-                  <option value="">選擇單位</option>
-                  {UNITS.map(u => <option key={u}>{u}</option>)}
-                </select>
+                <div style={{ padding:'8px 12px', background:C.primaryLight, borderRadius:7, fontSize:13, color:C.primaryDark, display:'flex', alignItems:'center', flexShrink:0 }}>
+                  {modalProduct.unit}
+                </div>
               </div>
             </div>
 
