@@ -25,8 +25,18 @@ export default function ManagerApp({ profile, onLogout }) {
   const [rejectingId, setRejectingId] = useState(null)
   const [rejectReason, setRejectReason] = useState('')
   const [toast, setToast] = useState('')
+  const [owners, setOwners] = useState({})
+  const [filterProduct, setFilterProduct] = useState('')
+  const [filterDate, setFilterDate] = useState('')
 
-  useEffect(() => { fetchReqs() }, [nav])
+  useEffect(() => { fetchReqs(); fetchOwners() }, [nav])
+
+  async function fetchOwners() {
+    const { data } = await supabase.from('product_owners').select('store_name, product_id, owner_name')
+    const map = {}
+    ;(data || []).forEach(o => { map[`${o.store_name}__${o.product_id}`] = o.owner_name })
+    setOwners(map)
+  }
 
   async function fetchReqs() {
     setLoading(true)
@@ -104,32 +114,44 @@ export default function ManagerApp({ profile, onLogout }) {
 
         {/* 品項表格 header */}
         <div style={{ fontSize:12, color:C.textMuted, marginBottom:6 }}>品項：</div>
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 100px 90px 110px 90px 90px', gap:8, padding:'5px 10px', background:C.primaryLight, borderRadius:6, marginBottom:4, fontSize:11, color:C.primaryDark, fontWeight:500 }}>
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 100px 90px 110px 90px 90px 80px', gap:8, padding:'5px 10px', background:C.primaryLight, borderRadius:6, marginBottom:4, fontSize:11, color:C.primaryDark, fontWeight:500 }}>
           <span>品項名稱</span>
           <span>規格</span>
           <span style={{ textAlign:'center' }}>請購數量</span>
           <span style={{ textAlign:'center' }}>庫存數量</span>
           <span style={{ textAlign:'right' }}>金額</span>
           <span style={{ textAlign:'right' }}>備註</span>
+          <span style={{ textAlign:'center' }}>負責人</span>
         </div>
 
         {/* 品項列表 */}
-        {visibleItems.map((i, ii) => (
-          <div key={ii} style={{ display:'grid', gridTemplateColumns:'1fr 100px 90px 110px 90px 90px', gap:8, padding:'6px 10px', borderLeft:`2px solid ${C.border}`, marginBottom:3, alignItems:'start' }}>
+        {visibleItems.map((i, ii) => {
+          const owner = owners[`${req.store_name}__${i.product_id}`]
+          const ownerColors = [
+            { bg:'#E6F1FB', dot:'#185FA5', text:'#0C447C' },
+            { bg:'#D9F2E6', dot:'#1A7A4A', text:'#1A4A2E' },
+            { bg:'#EDE5DC', dot:'#A59482', text:'#3D3530' },
+            { bg:'#FEF3D7', dot:'#BA7517', text:'#633806' },
+          ]
+          const oc = owner ? ownerColors[owner.charCodeAt(0) % ownerColors.length] : null
+          return (
+          <div key={ii} style={{ display:'grid', gridTemplateColumns:'1fr 100px 90px 110px 90px 90px 80px', gap:8, padding:'6px 10px', borderLeft:`2px solid ${C.border}`, marginBottom:3, alignItems:'center' }}>
             <span style={{ fontSize:12, color:C.text }}>{i.products?.name}</span>
             <span style={{ fontSize:11, color:C.textMuted }}>{i.products?.spec || '-'}</span>
             <span style={{ fontSize:12, color:C.text, textAlign:'center' }}>×{i.quantity} {i.products?.unit}</span>
-            <span style={{ fontSize:12, color:C.textMuted, textAlign:'center' }}>
-              {i.stock_qty} {i.stock_unit}
-            </span>
-            <span style={{ fontSize:12, color:C.blue, fontWeight:500, textAlign:'right' }}>
-              NT$ {((i.products?.price || 0) * i.quantity).toLocaleString()}
-            </span>
-            <span style={{ fontSize:11, color:C.textMuted, textAlign:'right', wordBreak:'break-all' }}>
-              {i.item_note || '-'}
-            </span>
+            <span style={{ fontSize:12, color:C.textMuted, textAlign:'center' }}>{i.stock_qty} {i.stock_unit}</span>
+            <span style={{ fontSize:12, color:C.blue, fontWeight:500, textAlign:'right' }}>NT$ {((i.products?.price || 0) * i.quantity).toLocaleString()}</span>
+            <span style={{ fontSize:11, color:C.textMuted, textAlign:'right', wordBreak:'break-all' }}>{i.item_note || '-'}</span>
+            <div style={{ display:'flex', justifyContent:'center' }}>
+              {owner && oc
+                ? <span style={{ display:'inline-flex', alignItems:'center', gap:4, background:oc.bg, color:oc.text, padding:'2px 7px', borderRadius:20, fontSize:10, fontWeight:500 }}>
+                    <span style={{ width:5, height:5, borderRadius:'50%', background:oc.dot, display:'inline-block' }}></span>{owner}
+                  </span>
+                : <span style={{ fontSize:11, color:C.textMuted }}>-</span>
+              }
+            </div>
           </div>
-        ))}
+        )})
         {hasMore && (
           <button onClick={() => toggleExpand(req.id)}
             style={{ background:'transparent', border:`1px solid ${C.border}`, color:C.primaryDark, padding:'4px 12px', borderRadius:20, fontSize:11, cursor:'pointer', marginTop:4 }}>
@@ -200,21 +222,38 @@ export default function ManagerApp({ profile, onLogout }) {
         </div>
       )}
 
-      <h2 style={{ fontSize:18, fontWeight:700, marginBottom:16, color:C.text }}>
+      <h2 style={{ fontSize:18, fontWeight:700, marginBottom:12, color:C.text }}>
         {nav === 'pending' ? `待審核請購單（${reqs.length} 件）` : '歷史請購紀錄'}
       </h2>
 
-      {loading && (
-        <div style={{ color:C.textMuted, textAlign:'center', padding:'40px 0' }}>載入中...</div>
-      )}
+      {/* 篩選列 */}
+      <div style={{ display:'flex', gap:10, marginBottom:16, flexWrap:'wrap' }}>
+        <input value={filterProduct} onChange={e => setFilterProduct(e.target.value)}
+          placeholder="🔍 搜尋品項名稱..."
+          style={{ padding:'7px 12px', border:`1px solid ${C.border}`, borderRadius:7, fontSize:12, color:C.text, width:200 }} />
+        <input type="date" value={filterDate} onChange={e => setFilterDate(e.target.value)}
+          style={{ padding:'7px 12px', border:`1px solid ${C.border}`, borderRadius:7, fontSize:12, color:C.text }} />
+        {(filterProduct || filterDate) && (
+          <button onClick={() => { setFilterProduct(''); setFilterDate('') }}
+            style={{ padding:'7px 12px', border:`1px solid ${C.border}`, borderRadius:7, fontSize:12, color:C.red, background:C.redLight, cursor:'pointer' }}>
+            清除篩選
+          </button>
+        )}
+      </div>
+
+      {loading && <div style={{ color:C.textMuted, textAlign:'center', padding:'40px 0' }}>載入中...</div>}
 
       <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
-        {!loading && reqs.length === 0 && (
-          <div style={{ color:C.textMuted, textAlign:'center', padding:'40px 0' }}>目前沒有請購單</div>
-        )}
-        {reqs.map((req, idx) => (
-          <ReqCard key={req.id} req={req} idx={idx} showActions={nav === 'pending'} />
-        ))}
+        {!loading && (() => {
+          const filtered = reqs.filter(req => {
+            const matchProduct = !filterProduct || req.requisition_items?.some(i =>
+              i.products?.name?.toLowerCase().includes(filterProduct.toLowerCase()))
+            const matchDate = !filterDate || req.submit_date === filterDate
+            return matchProduct && matchDate
+          })
+          if (filtered.length === 0) return <div style={{ color:C.textMuted, textAlign:'center', padding:'40px 0' }}>目前沒有符合條件的請購單</div>
+          return filtered.map((req, idx) => <ReqCard key={req.id} req={req} idx={idx} showActions={nav === 'pending'} />)
+        })()}
       </div>
     </Layout>
   )

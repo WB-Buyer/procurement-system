@@ -47,9 +47,17 @@ export default function StaffApp({ profile, onLogout }) {
   const [submitNote, setSubmitNote] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [toast, setToast] = useState('')
+  const [owners, setOwners] = useState({})
 
-  useEffect(() => { fetchProducts() }, [])
+  useEffect(() => { fetchProducts(); fetchOwners() }, [])
   useEffect(() => { if (nav === 'myreqs') fetchMyReqs() }, [nav])
+
+  async function fetchOwners() {
+    const { data } = await supabase.from('product_owners').select('store_name, product_id, owner_name')
+    const map = {}
+    ;(data || []).forEach(o => { map[`${o.store_name}__${o.product_id}`] = o.owner_name })
+    setOwners(map)
+  }
 
   async function fetchProducts() {
     const { data } = await supabase.from('products').select('*').eq('active', true).order('category')
@@ -319,11 +327,20 @@ export default function StaffApp({ profile, onLogout }) {
                   </div>
                   <div style={{ marginBottom: req.status === 'rejected' ? 10 : 0 }}>
                     <div style={{ fontSize:12, color:C.textMuted, marginBottom:4 }}>品項：</div>
-                    {req.requisition_items?.map((i, ii) => (
-                      <div key={ii} style={{ fontSize:12, color:C.text, padding:'3px 0 3px 12px', borderLeft:`2px solid ${C.border}`, marginBottom:3 }}>
-                        {i.products?.name} ×{i.quantity} {i.products?.unit}
-                      </div>
-                    ))}
+                    {req.requisition_items?.map((i, ii) => {
+                      const owner = owners[`${req.store_name}__${i.product_id}`]
+                      return (
+                        <div key={ii} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', fontSize:12, color:C.text, padding:'4px 0 4px 12px', borderLeft:`2px solid ${C.border}`, marginBottom:3 }}>
+                          <span>{i.products?.name} ×{i.quantity} {i.products?.unit}</span>
+                          {owner && (
+                            <span style={{ display:'inline-flex', alignItems:'center', gap:4, background:C.primaryLight, color:C.primaryDark, padding:'2px 8px', borderRadius:20, fontSize:10, fontWeight:500, flexShrink:0, marginLeft:8 }}>
+                              <span style={{ width:5, height:5, borderRadius:'50%', background:C.primaryDark, display:'inline-block' }}></span>
+                              {owner}
+                            </span>
+                          )}
+                        </div>
+                      )
+                    })}
                   </div>
                   {req.status === 'rejected' && req.reject_reason && (
                     <div style={{ background:C.redLight, color:C.red, padding:'6px 10px', borderRadius:6, fontSize:12, marginBottom:10 }}>

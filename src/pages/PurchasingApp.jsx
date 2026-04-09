@@ -154,6 +154,10 @@ export default function PurchasingApp({ profile, onLogout }) {
     rejected: allReqs.filter(r => r.status === 'rejected').length,
   }
 
+  const [filterProduct, setFilterProduct] = useState('')
+  const [filterDate, setFilterDate] = useState('')
+  const [filterStore, setFilterStore] = useState('')
+
   const statusMap = { pending:'待審核', manager_approved:'待採購', ordered:'已訂購', rejected:'已退回' }
   const statusStyle = {
     pending: { bg:'#FEF3D7', color:'#633806' },
@@ -162,7 +166,17 @@ export default function PurchasingApp({ profile, onLogout }) {
     rejected: { bg:C.redLight, color:C.red }
   }
 
-  const displayReqs = nav === 'toorder' ? allReqs.filter(r => r.status === 'manager_approved') : allReqs
+  const baseReqs = nav === 'toorder' ? allReqs.filter(r => r.status === 'manager_approved') : allReqs
+  const displayReqs = baseReqs.filter(req => {
+    const matchProduct = !filterProduct || req.requisition_items?.some(i =>
+      i.products?.name?.toLowerCase().includes(filterProduct.toLowerCase()))
+    const matchDate = !filterDate || req.submit_date === filterDate
+    const matchStore = !filterStore || req.store_name === filterStore
+    return matchProduct && matchDate && matchStore
+  })
+
+  const storeOptions = [...new Set(allReqs.map(r => r.store_name).filter(Boolean))]
+
   const navItems = [
     { id:'dashboard', icon:'📊', label:'統計儀表板' },
     { id:'toorder', icon:'📥', label:'待採購', badge: stats.toOrder },
@@ -316,12 +330,33 @@ export default function PurchasingApp({ profile, onLogout }) {
 
       {(nav === 'toorder' || nav === 'all') && (
         <div>
-          <h2 style={{ fontSize:18, fontWeight:700, marginBottom:16, color:C.text }}>
+          <h2 style={{ fontSize:18, fontWeight:700, marginBottom:12, color:C.text }}>
             {nav === 'toorder' ? `待採購訂單（${stats.toOrder} 件）` : `全部訂單（${stats.all} 件）`}
           </h2>
+
+          {/* 篩選列 */}
+          <div style={{ display:'flex', gap:10, marginBottom:16, flexWrap:'wrap', alignItems:'center' }}>
+            <input value={filterProduct} onChange={e => setFilterProduct(e.target.value)}
+              placeholder="🔍 搜尋品項名稱..."
+              style={{ padding:'7px 12px', border:`1px solid ${C.border}`, borderRadius:7, fontSize:12, color:C.text, width:200 }} />
+            <input type="date" value={filterDate} onChange={e => setFilterDate(e.target.value)}
+              style={{ padding:'7px 12px', border:`1px solid ${C.border}`, borderRadius:7, fontSize:12, color:C.text }} />
+            <select value={filterStore} onChange={e => setFilterStore(e.target.value)}
+              style={{ padding:'7px 12px', border:`1px solid ${C.border}`, borderRadius:7, fontSize:12, color:C.text }}>
+              <option value="">所有門市</option>
+              {storeOptions.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+            {(filterProduct || filterDate || filterStore) && (
+              <button onClick={() => { setFilterProduct(''); setFilterDate(''); setFilterStore('') }}
+                style={{ padding:'7px 12px', border:`1px solid ${C.border}`, borderRadius:7, fontSize:12, color:C.red, background:C.redLight, cursor:'pointer' }}>
+                清除篩選
+              </button>
+            )}
+          </div>
+
           {loading && <div style={{ color:C.textMuted, textAlign:'center', padding:'40px 0' }}>載入中...</div>}
           <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-            {displayReqs.length === 0 && !loading && <div style={{ color:C.textMuted, textAlign:'center', padding:'40px 0' }}>目前沒有訂單</div>}
+            {displayReqs.length === 0 && !loading && <div style={{ color:C.textMuted, textAlign:'center', padding:'40px 0' }}>目前沒有符合條件的訂單</div>}
             {displayReqs.map((req, idx) => <ReqCard key={req.id} req={req} idx={idx} />)}
           </div>
         </div>
