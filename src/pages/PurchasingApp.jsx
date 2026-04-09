@@ -46,13 +46,25 @@ function NoteInput({ reqId, itemId, defaultNote, onSave }) {
 export default function PurchasingApp({ profile, onLogout }) {
   const [nav, setNav] = useState('dashboard')
   const [allReqs, setAllReqs] = useState([])
+  const [owners, setOwners] = useState({})
   const [loading, setLoading] = useState(true)
   const [rejectingId, setRejectingId] = useState(null)
   const [rejectReason, setRejectReason] = useState('')
   const [expandedIds, setExpandedIds] = useState({})
   const [toast, setToast] = useState('')
 
-  useEffect(() => { fetchAll() }, [])
+  useEffect(() => { fetchAll(); fetchOwners() }, [])
+
+  async function fetchOwners() {
+    const { data } = await supabase.from('product_owners').select('store_name, product_id, owner_name')
+    const map = {}
+    ;(data || []).forEach(o => { map[`${o.store_name}__${o.product_id}`] = o.owner_name })
+    setOwners(map)
+  }
+
+  function getOwner(storeName, productId) {
+    return owners[`${storeName}__${productId}`] || '-'
+  }
 
   async function fetchAll() {
     setLoading(true)
@@ -105,18 +117,19 @@ export default function PurchasingApp({ profile, onLogout }) {
     const total = calcTotal(req)
     const orderId = generateOrderId(req.created_at, seqIdx + 1)
     const printWindow = window.open('', '_blank')
-    printWindow.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>訂購單 ${orderId}</title><style>body{font-family:'Microsoft JhengHei','微軟正黑體',Arial,sans-serif;padding:40px;color:#3D3530;}h1{font-size:22px;margin-bottom:6px;color:#A59482;}.info{font-size:13px;color:#A59482;margin-bottom:24px;line-height:2;}table{width:100%;border-collapse:collapse;font-size:12px;}th{background:#C4B1A0;color:#fff;padding:8px 10px;text-align:left;}td{padding:8px 10px;border-bottom:1px solid #D9CEC5;color:#3D3530;}tr:nth-child(even) td{background:#F7F3EF;}.total{text-align:right;font-size:15px;font-weight:bold;color:#A59482;margin-top:16px;}.footer{margin-top:40px;font-size:12px;color:#A59482;border-top:1px solid #D9CEC5;padding-top:12px;}@media print{button{display:none;}}</style></head><body><h1>晶緻集團請購系統 — 訂購單</h1><div class="info">成立編號：${orderId}<br>門市：${req.store_name || '-'}<br>送單日期：${req.submit_date || '-'}<br>簽核時間：${formatDateTime(req.approved_at)}<br>狀態：已訂購</div><table><thead><tr><th>品項名稱</th><th>規格</th><th>採購數量</th><th>庫存數量</th><th>備註/請購原因</th><th>單價</th><th>小計</th><th>採購說明</th></tr></thead><tbody>${req.requisition_items?.map(i => `<tr><td>${i.products?.name||'-'}</td><td>${i.products?.spec||'-'}</td><td>x${i.quantity} ${i.products?.unit||'-'}</td><td>${i.stock_qty} ${i.stock_unit}</td><td>${i.item_note||'-'}</td><td>NT$ ${(i.products?.price||0).toLocaleString()}</td><td>NT$ ${((i.products?.price||0)*i.quantity).toLocaleString()}</td><td>${i.purchase_note||'-'}</td></tr>`).join('')||''}</tbody></table><div class="total">總金額：NT$ ${total.toLocaleString()}</div><div class="footer">列印日期：${new Date().toLocaleDateString('zh-TW')}</div><br><button onclick="window.print()" style="background:#C4B1A0;color:#fff;border:none;padding:10px 24px;border-radius:8px;font-size:14px;cursor:pointer;">列印 / 儲存 PDF</button></body></html>`)
+    printWindow.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>訂購單 ${orderId}</title><style>body{font-family:'Microsoft JhengHei','微軟正黑體',Arial,sans-serif;padding:40px;color:#3D3530;}h1{font-size:22px;margin-bottom:6px;color:#A59482;}.info{font-size:13px;color:#A59482;margin-bottom:24px;line-height:2;}table{width:100%;border-collapse:collapse;font-size:12px;}th{background:#C4B1A0;color:#fff;padding:8px 10px;text-align:left;}td{padding:8px 10px;border-bottom:1px solid #D9CEC5;color:#3D3530;}tr:nth-child(even) td{background:#F7F3EF;}.total{text-align:right;font-size:15px;font-weight:bold;color:#A59482;margin-top:16px;}.footer{margin-top:40px;font-size:12px;color:#A59482;border-top:1px solid #D9CEC5;padding-top:12px;}@media print{button{display:none;}}</style></head><body><h1>晶緻集團請購系統 — 訂購單</h1><div class="info">成立編號：${orderId}<br>門市：${req.store_name || '-'}<br>送單日期：${req.submit_date || '-'}<br>簽核時間：${formatDateTime(req.approved_at)}<br>狀態：已訂購</div><table><thead><tr><th>品項名稱</th><th>規格</th><th>採購數量</th><th>庫存數量</th><th>備註/請購原因</th><th>單價</th><th>小計</th><th>採購說明</th><th>負責人</th></tr></thead><tbody>${req.requisition_items?.map(i => `<tr><td>${i.products?.name||'-'}</td><td>${i.products?.spec||'-'}</td><td>x${i.quantity} ${i.products?.unit||'-'}</td><td>${i.stock_qty} ${i.stock_unit}</td><td>${i.item_note||'-'}</td><td>NT$ ${(i.products?.price||0).toLocaleString()}</td><td>NT$ ${((i.products?.price||0)*i.quantity).toLocaleString()}</td><td>${i.purchase_note||'-'}</td><td>${owners[req.store_name+'__'+i.product_id]||'-'}</td></tr>`).join('')||''}</tbody></table><div class="total">總金額：NT$ ${total.toLocaleString()}</div><div class="footer">列印日期：${new Date().toLocaleDateString('zh-TW')}</div><br><button onclick="window.print()" style="background:#C4B1A0;color:#fff;border:none;padding:10px 24px;border-radius:8px;font-size:14px;cursor:pointer;">列印 / 儲存 PDF</button></body></html>`)
     printWindow.document.close()
   }
 
   function exportExcel(req, seqIdx) {
     const orderId = generateOrderId(req.created_at, seqIdx + 1)
     const total = calcTotal(req)
-    const headers = ['品項名稱','規格','採購數量','單位','庫存數量','庫存單位','備註/請購原因','單價','小計','採購說明']
+    const headers = ['品項名稱','規格','採購數量','單位','庫存數量','庫存單位','備註/請購原因','單價','小計','採購說明','負責人']
     const rows = req.requisition_items?.map(i => [
       i.products?.name||'-', i.products?.spec||'-', i.quantity, i.products?.unit||'-',
       i.stock_qty, i.stock_unit, i.item_note||'',
-      i.products?.price||0, (i.products?.price||0)*i.quantity, i.purchase_note||''
+      i.products?.price||0, (i.products?.price||0)*i.quantity, i.purchase_note||'',
+      owners[`${req.store_name}__${i.product_id}`]||'-'
     ]) || []
     const infoRows = [
       [`成立編號：${orderId}`],[`門市：${req.store_name||'-'}`],
@@ -156,7 +169,7 @@ export default function PurchasingApp({ profile, onLogout }) {
     { id:'all', icon:'📋', label:'全部訂單' },
   ]
 
-  const COLS = '1fr 100px 80px 90px 120px 90px 130px'
+  const COLS = '1fr 100px 80px 90px 120px 90px 110px 90px'
 
   const ReqCard = ({ req, idx }) => {
     const s = statusStyle[req.status] || statusStyle.pending
@@ -195,6 +208,7 @@ export default function PurchasingApp({ profile, onLogout }) {
             <span style={{ textAlign:'center' }}>備註/請購原因</span>
             <span style={{ textAlign:'right' }}>金額</span>
             <span style={{ textAlign:'center' }}>採購說明</span>
+            <span style={{ textAlign:'center' }}>負責人</span>
           </div>
           {visibleItems.map((i, ii) => (
             <div key={ii} style={{ display:'grid', gridTemplateColumns:COLS, gap:6, padding:'6px 10px', borderLeft:`2px solid ${C.border}`, marginBottom:3, alignItems:'center' }}>
@@ -208,6 +222,25 @@ export default function PurchasingApp({ profile, onLogout }) {
                 ? <NoteInput key={`${req.id}-${i.id}`} reqId={req.id} itemId={i.id} defaultNote={i.purchase_note||''} onSave={saveItemNote} />
                 : <span style={{ fontSize:11, color:C.textMuted, textAlign:'center' }}>{i.purchase_note || '-'}</span>
               }
+              {(() => {
+                const owner = getOwner(req.store_name, i.product_id)
+                if (owner === '-') return <span style={{ fontSize:11, color:C.textMuted, textAlign:'center' }}>-</span>
+                const colors = [
+                  { bg:'#E6F1FB', dot:'#185FA5', text:'#0C447C' },
+                  { bg:'#D9F2E6', dot:'#1A7A4A', text:'#1A4A2E' },
+                  { bg:'#EDE5DC', dot:'#A59482', text:'#3D3530' },
+                  { bg:'#FEF3D7', dot:'#BA7517', text:'#633806' },
+                ]
+                const c = colors[owner.charCodeAt(0) % colors.length]
+                return (
+                  <div style={{ display:'flex', justifyContent:'center' }}>
+                    <span style={{ display:'inline-flex', alignItems:'center', gap:5, background:c.bg, color:c.text, padding:'2px 8px', borderRadius:20, fontSize:10, fontWeight:500 }}>
+                      <span style={{ width:6, height:6, borderRadius:'50%', background:c.dot, flexShrink:0, display:'inline-block' }}></span>
+                      {owner}
+                    </span>
+                  </div>
+                )
+              })()}
             </div>
           ))}
           {hasMore && (
