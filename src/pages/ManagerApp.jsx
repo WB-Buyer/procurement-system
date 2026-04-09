@@ -28,6 +28,7 @@ export default function ManagerApp({ profile, onLogout }) {
   const [owners, setOwners] = useState({})
   const [filterProduct, setFilterProduct] = useState('')
   const [filterDate, setFilterDate] = useState('')
+  const [expandedIds, setExpandedIds] = useState({})
 
   useEffect(() => { fetchReqs(); fetchOwners() }, [nav])
 
@@ -50,8 +51,9 @@ export default function ManagerApp({ profile, onLogout }) {
   }
 
   function showToast(msg) { setToast(msg); setTimeout(() => setToast(''), 2500) }
+  function toggleExpand(id) { setExpandedIds(prev => ({ ...prev, [id]: !prev[id] })) }
 
-  async function approve(id, req, idx) {
+  async function approve(id) {
     const now = new Date().toISOString()
     await supabase.from('requisitions').update({ status: 'manager_approved', approved_at: now }).eq('id', id)
     showToast('已核准，轉送採購確認')
@@ -78,13 +80,24 @@ export default function ManagerApp({ profile, onLogout }) {
     rejected: { bg:C.redLight, color:C.red }
   }
 
+  const ownerColors = [
+    { bg:'#E6F1FB', dot:'#185FA5', text:'#0C447C' },
+    { bg:'#D9F2E6', dot:'#1A7A4A', text:'#1A4A2E' },
+    { bg:'#EDE5DC', dot:'#A59482', text:'#3D3530' },
+    { bg:'#FEF3D7', dot:'#BA7517', text:'#633806' },
+  ]
+
   const navItems = [
     { id:'pending', icon:'📥', label:'待審核', badge: allReqs.filter(r => r.status === 'pending').length },
     { id:'history', icon:'📋', label:'歷史紀錄' },
   ]
 
-  const [expandedIds, setExpandedIds] = useState({})
-  function toggleExpand(id) { setExpandedIds(prev => ({ ...prev, [id]: !prev[id] })) }
+  const filteredReqs = reqs.filter(req => {
+    const matchProduct = !filterProduct || req.requisition_items?.some(i =>
+      i.products?.name?.toLowerCase().includes(filterProduct.toLowerCase()))
+    const matchDate = !filterDate || req.submit_date === filterDate
+    return matchProduct && matchDate
+  })
 
   const ReqCard = ({ req, idx, showActions }) => {
     const s = statusStyle[req.status] || statusStyle.pending
@@ -98,8 +111,6 @@ export default function ManagerApp({ profile, onLogout }) {
 
     return (
       <div style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:12, padding:16 }}>
-
-        {/* 標題列 */}
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:12 }}>
           <div>
             <div style={{ fontSize:13, fontWeight:500, color:C.text }}>成立編號：{orderId}</div>
@@ -112,7 +123,6 @@ export default function ManagerApp({ profile, onLogout }) {
           </span>
         </div>
 
-        {/* 品項表格 header */}
         <div style={{ fontSize:12, color:C.textMuted, marginBottom:6 }}>品項：</div>
         <div style={{ display:'grid', gridTemplateColumns:'1fr 100px 90px 110px 90px 90px 80px', gap:8, padding:'5px 10px', background:C.primaryLight, borderRadius:6, marginBottom:4, fontSize:11, color:C.primaryDark, fontWeight:500 }}>
           <span>品項名稱</span>
@@ -124,34 +134,29 @@ export default function ManagerApp({ profile, onLogout }) {
           <span style={{ textAlign:'center' }}>負責人</span>
         </div>
 
-        {/* 品項列表 */}
         {visibleItems.map((i, ii) => {
           const owner = owners[`${req.store_name}__${i.product_id}`]
-          const ownerColors = [
-            { bg:'#E6F1FB', dot:'#185FA5', text:'#0C447C' },
-            { bg:'#D9F2E6', dot:'#1A7A4A', text:'#1A4A2E' },
-            { bg:'#EDE5DC', dot:'#A59482', text:'#3D3530' },
-            { bg:'#FEF3D7', dot:'#BA7517', text:'#633806' },
-          ]
           const oc = owner ? ownerColors[owner.charCodeAt(0) % ownerColors.length] : null
           return (
-          <div key={ii} style={{ display:'grid', gridTemplateColumns:'1fr 100px 90px 110px 90px 90px 80px', gap:8, padding:'6px 10px', borderLeft:`2px solid ${C.border}`, marginBottom:3, alignItems:'center' }}>
-            <span style={{ fontSize:12, color:C.text }}>{i.products?.name}</span>
-            <span style={{ fontSize:11, color:C.textMuted }}>{i.products?.spec || '-'}</span>
-            <span style={{ fontSize:12, color:C.text, textAlign:'center' }}>×{i.quantity} {i.products?.unit}</span>
-            <span style={{ fontSize:12, color:C.textMuted, textAlign:'center' }}>{i.stock_qty} {i.stock_unit}</span>
-            <span style={{ fontSize:12, color:C.blue, fontWeight:500, textAlign:'right' }}>NT$ {((i.products?.price || 0) * i.quantity).toLocaleString()}</span>
-            <span style={{ fontSize:11, color:C.textMuted, textAlign:'right', wordBreak:'break-all' }}>{i.item_note || '-'}</span>
-            <div style={{ display:'flex', justifyContent:'center' }}>
-              {owner && oc
-                ? <span style={{ display:'inline-flex', alignItems:'center', gap:4, background:oc.bg, color:oc.text, padding:'2px 7px', borderRadius:20, fontSize:10, fontWeight:500 }}>
-                    <span style={{ width:5, height:5, borderRadius:'50%', background:oc.dot, display:'inline-block' }}></span>{owner}
-                  </span>
-                : <span style={{ fontSize:11, color:C.textMuted }}>-</span>
-              }
+            <div key={ii} style={{ display:'grid', gridTemplateColumns:'1fr 100px 90px 110px 90px 90px 80px', gap:8, padding:'6px 10px', borderLeft:`2px solid ${C.border}`, marginBottom:3, alignItems:'center' }}>
+              <span style={{ fontSize:12, color:C.text }}>{i.products?.name}</span>
+              <span style={{ fontSize:11, color:C.textMuted }}>{i.products?.spec || '-'}</span>
+              <span style={{ fontSize:12, color:C.text, textAlign:'center' }}>×{i.quantity} {i.products?.unit}</span>
+              <span style={{ fontSize:12, color:C.textMuted, textAlign:'center' }}>{i.stock_qty} {i.stock_unit}</span>
+              <span style={{ fontSize:12, color:C.blue, fontWeight:500, textAlign:'right' }}>NT$ {((i.products?.price || 0) * i.quantity).toLocaleString()}</span>
+              <span style={{ fontSize:11, color:C.textMuted, textAlign:'right', wordBreak:'break-all' }}>{i.item_note || '-'}</span>
+              <div style={{ display:'flex', justifyContent:'center' }}>
+                {owner && oc
+                  ? <span style={{ display:'inline-flex', alignItems:'center', gap:4, background:oc.bg, color:oc.text, padding:'2px 7px', borderRadius:20, fontSize:10, fontWeight:500 }}>
+                      <span style={{ width:5, height:5, borderRadius:'50%', background:oc.dot, display:'inline-block' }}></span>{owner}
+                    </span>
+                  : <span style={{ fontSize:11, color:C.textMuted }}>-</span>
+                }
+              </div>
             </div>
-          </div>
+          )
         })}
+
         {hasMore && (
           <button onClick={() => toggleExpand(req.id)}
             style={{ background:'transparent', border:`1px solid ${C.border}`, color:C.primaryDark, padding:'4px 12px', borderRadius:20, fontSize:11, cursor:'pointer', marginTop:4 }}>
@@ -159,30 +164,26 @@ export default function ManagerApp({ profile, onLogout }) {
           </button>
         )}
 
-        {/* 總金額 */}
         <div style={{ textAlign:'right', fontSize:13, fontWeight:500, color:C.blue, marginTop:10, paddingTop:8, borderTop:`1px solid ${C.border}` }}>
           總金額：NT$ {total.toLocaleString()}
         </div>
 
-        {/* 整單備註 */}
         {req.note && (
           <div style={{ marginTop:8, fontSize:12, color:C.textMuted, background:C.primaryLight, padding:'6px 10px', borderRadius:6 }}>
             整單備註：{req.note}
           </div>
         )}
 
-        {/* 退回原因 */}
         {req.status === 'rejected' && req.reject_reason && (
           <div style={{ background:C.redLight, color:C.red, padding:'6px 10px', borderRadius:6, fontSize:12, marginTop:8 }}>
             退回原因：{req.reject_reason}
           </div>
         )}
 
-        {/* 操作按鈕 */}
         {showActions && req.status === 'pending' && (
           <div style={{ marginTop:12 }}>
             <div style={{ display:'flex', gap:8 }}>
-              <button onClick={() => approve(req.id, req, idx)}
+              <button onClick={() => approve(req.id)}
                 style={{ background:C.green, color:C.white, border:'none', padding:'7px 20px', borderRadius:7, fontSize:12, cursor:'pointer', fontWeight:500 }}>
                 核准
               </button>
@@ -226,7 +227,6 @@ export default function ManagerApp({ profile, onLogout }) {
         {nav === 'pending' ? `待審核請購單（${reqs.length} 件）` : '歷史請購紀錄'}
       </h2>
 
-      {/* 篩選列 */}
       <div style={{ display:'flex', gap:10, marginBottom:16, flexWrap:'wrap' }}>
         <input value={filterProduct} onChange={e => setFilterProduct(e.target.value)}
           placeholder="🔍 搜尋品項名稱..."
@@ -244,16 +244,12 @@ export default function ManagerApp({ profile, onLogout }) {
       {loading && <div style={{ color:C.textMuted, textAlign:'center', padding:'40px 0' }}>載入中...</div>}
 
       <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
-        {!loading && (() => {
-          const filtered = reqs.filter(req => {
-            const matchProduct = !filterProduct || req.requisition_items?.some(i =>
-              i.products?.name?.toLowerCase().includes(filterProduct.toLowerCase()))
-            const matchDate = !filterDate || req.submit_date === filterDate
-            return matchProduct && matchDate
-          })
-          if (filtered.length === 0) return <div style={{ color:C.textMuted, textAlign:'center', padding:'40px 0' }}>目前沒有符合條件的請購單</div>
-          return filtered.map((req, idx) => <ReqCard key={req.id} req={req} idx={idx} showActions={nav === 'pending'} />)
-        })()}
+        {!loading && filteredReqs.length === 0 && (
+          <div style={{ color:C.textMuted, textAlign:'center', padding:'40px 0' }}>目前沒有符合條件的請購單</div>
+        )}
+        {filteredReqs.map((req, idx) => (
+          <ReqCard key={req.id} req={req} idx={idx} showActions={nav === 'pending'} />
+        ))}
       </div>
     </Layout>
   )
