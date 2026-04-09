@@ -151,7 +151,7 @@ export default function ManagerApp({ profile, onLogout }) {
               }
             </div>
           </div>
-        )})
+        })}
         {hasMore && (
           <button onClick={() => toggleExpand(req.id)}
             style={{ background:'transparent', border:`1px solid ${C.border}`, color:C.primaryDark, padding:'4px 12px', borderRadius:20, fontSize:11, cursor:'pointer', marginTop:4 }}>
