@@ -387,6 +387,7 @@ function ReportPage({ allReqs }) {
   const [dateTo, setDateTo] = React.useState('')
   const [selectedStores, setSelectedStores] = React.useState([])
   const [selectedProducts, setSelectedProducts] = React.useState([])
+  const [productSearch, setProductSearch] = React.useState('')
   const [reportType, setReportType] = React.useState('detail')
   const [reportData, setReportData] = React.useState(null)
 
@@ -551,32 +552,58 @@ function ReportPage({ allReqs }) {
                 onClick={() => document.getElementById('product-dropdown').classList.toggle('open')}
                 style={{ padding:'7px 12px', border:`1px solid ${C.border}`, borderRadius:7, fontSize:12, color: selectedProducts.length ? C.text : C.textMuted, cursor:'pointer', background:C.white, userSelect:'none', display:'flex', justifyContent:'space-between', alignItems:'center', minWidth:300 }}>
                 <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', flex:1 }}>
-                  {selectedProducts.length === 0 ? '全部品項' : selectedProducts.join('、')}
+                  {selectedProducts.length === 0 ? '全部品項' : `已選 ${selectedProducts.length} 項：${selectedProducts.join('、')}`}
                 </span>
                 <span style={{ marginLeft:8, color:C.textMuted, fontSize:10 }}>▼</span>
               </div>
               <div id="product-dropdown"
-                style={{ display:'none', position:'absolute', top:'100%', left:0, right:0, background:C.white, border:`1px solid ${C.border}`, borderRadius:7, zIndex:100, maxHeight:240, overflowY:'auto', boxShadow:'0 4px 12px rgba(0,0,0,0.1)', marginTop:2 }}
+                style={{ display:'none', position:'absolute', top:'100%', left:0, right:0, background:C.white, border:`1px solid ${C.border}`, borderRadius:7, zIndex:100, maxHeight:300, boxShadow:'0 4px 12px rgba(0,0,0,0.1)', marginTop:2 }}
                 className="product-dropdown-menu">
                 <style>{`.product-dropdown-menu.open { display: block !important; }`}</style>
-                <div style={{ padding:'6px 10px', borderBottom:`1px solid ${C.border}`, display:'flex', gap:8 }}>
-                  <button onClick={e => { e.stopPropagation(); setSelectedProducts([]) }}
+
+                {/* 搜尋框 */}
+                <div style={{ padding:'8px 10px', borderBottom:`1px solid ${C.border}`, position:'sticky', top:0, background:C.white, zIndex:1 }}>
+                  <input
+                    value={productSearch}
+                    onChange={e => setProductSearch(e.target.value)}
+                    onClick={e => e.stopPropagation()}
+                    placeholder="🔍 搜尋品項名稱..."
+                    style={{ width:'100%', padding:'6px 10px', border:`1px solid ${C.border}`, borderRadius:6, fontSize:12, color:C.text, outline:'none' }}
+                  />
+                </div>
+
+                {/* 全部 / 已選數量 */}
+                <div style={{ padding:'6px 10px', borderBottom:`1px solid ${C.border}`, display:'flex', alignItems:'center', gap:8, background:'#FAF7F5' }}>
+                  <button onClick={e => { e.stopPropagation(); setSelectedProducts([]); setProductSearch('') }}
                     style={{ fontSize:11, padding:'2px 10px', borderRadius:20, border:`1px solid ${C.border}`, cursor:'pointer', background: selectedProducts.length === 0 ? C.blue : C.white, color: selectedProducts.length === 0 ? C.white : C.textMuted }}>
                     全部
                   </button>
-                  <span style={{ fontSize:11, color:C.textMuted, alignSelf:'center' }}>已選 {selectedProducts.length} 項</span>
+                  <span style={{ fontSize:11, color:C.textMuted }}>已選 {selectedProducts.length} 項 / 共 {productOptions.length} 項</span>
+                  {productSearch && (
+                    <span style={{ fontSize:11, color:C.primaryDark }}>搜尋結果：{productOptions.filter(p => p.toLowerCase().includes(productSearch.toLowerCase())).length} 項</span>
+                  )}
                 </div>
-                {productOptions.map(p => (
-                  <div key={p} onClick={e => { e.stopPropagation(); toggleProduct(p) }}
-                    style={{ padding:'7px 12px', fontSize:12, cursor:'pointer', display:'flex', alignItems:'center', gap:8,
-                      background: selectedProducts.includes(p) ? '#F0F7FF' : C.white,
-                      color: selectedProducts.includes(p) ? C.blue : C.text }}>
-                    <span style={{ width:14, height:14, border:`1.5px solid ${selectedProducts.includes(p) ? C.blue : C.border}`, borderRadius:3, background: selectedProducts.includes(p) ? C.blue : C.white, display:'inline-flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                      {selectedProducts.includes(p) && <span style={{ color:C.white, fontSize:9, lineHeight:1 }}>✓</span>}
-                    </span>
-                    {p}
-                  </div>
-                ))}
+
+                {/* 品項列表 */}
+                <div style={{ overflowY:'auto', maxHeight:200 }}>
+                  {productOptions
+                    .filter(p => !productSearch || p.toLowerCase().includes(productSearch.toLowerCase()))
+                    .map(p => (
+                      <div key={p} onClick={e => { e.stopPropagation(); toggleProduct(p) }}
+                        style={{ padding:'7px 12px', fontSize:12, cursor:'pointer', display:'flex', alignItems:'center', gap:8,
+                          background: selectedProducts.includes(p) ? '#F0F7FF' : C.white,
+                          color: selectedProducts.includes(p) ? C.blue : C.text }}>
+                        <span style={{ width:14, height:14, border:`1.5px solid ${selectedProducts.includes(p) ? C.blue : C.border}`, borderRadius:3, background: selectedProducts.includes(p) ? C.blue : C.white, display:'inline-flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                          {selectedProducts.includes(p) && <span style={{ color:C.white, fontSize:9, lineHeight:1 }}>✓</span>}
+                        </span>
+                        {p}
+                      </div>
+                    ))
+                  }
+                  {productOptions.filter(p => !productSearch || p.toLowerCase().includes(productSearch.toLowerCase())).length === 0 && (
+                    <div style={{ padding:'16px', textAlign:'center', fontSize:12, color:C.textMuted }}>找不到符合的品項</div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
