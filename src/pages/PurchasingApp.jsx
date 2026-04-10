@@ -155,7 +155,8 @@ export default function PurchasingApp({ profile, onLogout }) {
   }
 
   const [filterProduct, setFilterProduct] = useState('')
-  const [filterDate, setFilterDate] = useState('')
+  const [filterDateFrom, setFilterDateFrom] = useState('')
+  const [filterDateTo, setFilterDateTo] = useState('')
   const [filterStore, setFilterStore] = useState('')
 
   const statusMap = { pending:'待審核', manager_approved:'待採購', ordered:'已訂購', rejected:'已退回' }
@@ -170,9 +171,10 @@ export default function PurchasingApp({ profile, onLogout }) {
   const displayReqs = baseReqs.filter(req => {
     const matchProduct = !filterProduct || req.requisition_items?.some(i =>
       i.products?.name?.toLowerCase().includes(filterProduct.toLowerCase()))
-    const matchDate = !filterDate || req.submit_date === filterDate
+    const matchFrom = !filterDateFrom || req.submit_date >= filterDateFrom
+    const matchTo = !filterDateTo || req.submit_date <= filterDateTo
     const matchStore = !filterStore || req.store_name === filterStore
-    return matchProduct && matchDate && matchStore
+    return matchProduct && matchFrom && matchTo && matchStore
   })
 
   const storeOptions = [...new Set(allReqs.map(r => r.store_name).filter(Boolean))]
@@ -181,6 +183,7 @@ export default function PurchasingApp({ profile, onLogout }) {
     { id:'dashboard', icon:'📊', label:'統計儀表板' },
     { id:'toorder', icon:'📥', label:'待採購', badge: stats.toOrder },
     { id:'all', icon:'📋', label:'全部訂單' },
+    { id:'report', icon:'📈', label:'採購報表' },
   ]
 
   const COLS = '1fr 100px 80px 90px 120px 90px 110px 90px'
@@ -339,15 +342,21 @@ export default function PurchasingApp({ profile, onLogout }) {
             <input value={filterProduct} onChange={e => setFilterProduct(e.target.value)}
               placeholder="🔍 搜尋品項名稱..."
               style={{ padding:'7px 12px', border:`1px solid ${C.border}`, borderRadius:7, fontSize:12, color:C.text, width:200 }} />
-            <input type="date" value={filterDate} onChange={e => setFilterDate(e.target.value)}
-              style={{ padding:'7px 12px', border:`1px solid ${C.border}`, borderRadius:7, fontSize:12, color:C.text }} />
+            <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+              <span style={{ fontSize:12, color:C.textMuted }}>日期</span>
+              <input type="date" value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)}
+                style={{ padding:'7px 10px', border:`1px solid ${C.border}`, borderRadius:7, fontSize:12, color:C.text }} />
+              <span style={{ fontSize:12, color:C.textMuted }}>～</span>
+              <input type="date" value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)}
+                style={{ padding:'7px 10px', border:`1px solid ${C.border}`, borderRadius:7, fontSize:12, color:C.text }} />
+            </div>
             <select value={filterStore} onChange={e => setFilterStore(e.target.value)}
               style={{ padding:'7px 12px', border:`1px solid ${C.border}`, borderRadius:7, fontSize:12, color:C.text }}>
               <option value="">所有門市</option>
               {storeOptions.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
-            {(filterProduct || filterDate || filterStore) && (
-              <button onClick={() => { setFilterProduct(''); setFilterDate(''); setFilterStore('') }}
+            {(filterProduct || filterDateFrom || filterDateTo || filterStore) && (
+              <button onClick={() => { setFilterProduct(''); setFilterDateFrom(''); setFilterDateTo(''); setFilterStore('') }}
                 style={{ padding:'7px 12px', border:`1px solid ${C.border}`, borderRadius:7, fontSize:12, color:C.red, background:C.redLight, cursor:'pointer' }}>
                 清除篩選
               </button>
@@ -361,6 +370,311 @@ export default function PurchasingApp({ profile, onLogout }) {
           </div>
         </div>
       )}
+      {nav === 'report' && <ReportPage allReqs={allReqs} />}
     </Layout>
+  )
+}
+
+function ReportPage({ allReqs }) {
+  const C = {
+    primary: '#C4B1A0', primaryDark: '#A59482', primaryLight: '#EDE5DC',
+    border: '#D9CEC5', text: '#3D3530', textMuted: '#A59482', white: '#FFFFFF',
+    red: '#B83232', redLight: '#FDEAEA', green: '#1A7A4A', greenLight: '#D9F2E6',
+    blue: '#185FA5',
+  }
+
+  const [dateFrom, setDateFrom] = React.useState('')
+  const [dateTo, setDateTo] = React.useState('')
+  const [selectedStores, setSelectedStores] = React.useState([])
+  const [selectedProducts, setSelectedProducts] = React.useState([])
+  const [reportType, setReportType] = React.useState('detail')
+  const [reportData, setReportData] = React.useState(null)
+
+  const storeOptions = [...new Set(allReqs.map(r => r.store_name).filter(Boolean))].sort()
+  const productOptions = [...new Set(
+    allReqs.flatMap(r => r.requisition_items?.map(i => i.products?.name) || []).filter(Boolean)
+  )].sort()
+
+  function toggleStore(s) {
+    setSelectedStores(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s])
+  }
+  function toggleProduct(p) {
+    setSelectedProducts(prev => prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p])
+  }
+
+  function generateReport() {
+    const filtered = allReqs.filter(req => {
+      const matchFrom = !dateFrom || req.submit_date >= dateFrom
+      const matchTo = !dateTo || req.submit_date <= dateTo
+      const matchStore = selectedStores.length === 0 || selectedStores.includes(req.store_name)
+      return matchFrom && matchTo && matchStore
+    })
+
+    const rows = []
+    filtered.forEach(req => {
+      req.requisition_items?.forEach(i => {
+        const pname = i.products?.name || '-'
+        if (selectedProducts.length > 0 && !selectedProducts.includes(pname)) return
+        rows.push({
+          date: req.submit_date || '-',
+          store: req.store_name || '-',
+          product: pname,
+          spec: i.products?.spec || '-',
+          unit: i.products?.unit || '-',
+          qty: i.quantity,
+          price: i.products?.price || 0,
+          total: (i.products?.price || 0) * i.quantity,
+          status: req.status,
+        })
+      })
+    })
+    setReportData(rows)
+  }
+
+  function exportExcel() {
+    if (!reportData || reportData.length === 0) { alert('請先產生報表'); return }
+
+    let rows = []
+    const label = `日期區間：${dateFrom||'不限'} ～ ${dateTo||'不限'}　門市：${selectedStores.length ? selectedStores.join('、') : '全部'}　品項：${selectedProducts.length ? selectedProducts.join('、') : '全部'}`
+
+    if (reportType === 'detail') {
+      rows = [
+        [label], [],
+        ['日期', '門市', '品項名稱', '規格', '單位', '數量', '單價', '金額'],
+        ...reportData.map(r => [r.date, r.store, r.product, r.spec, r.unit, r.qty, r.price, r.total]),
+        [],
+        ['合計', '', '', '', '', reportData.reduce((s,r)=>s+r.qty,0), '', reportData.reduce((s,r)=>s+r.total,0)]
+      ]
+    } else if (reportType === 'summary') {
+      const map = {}
+      reportData.forEach(r => {
+        const k = `${r.product}__${r.unit}`
+        if (!map[k]) map[k] = { product: r.product, spec: r.spec, unit: r.unit, qty: 0, total: 0 }
+        map[k].qty += r.qty
+        map[k].total += r.total
+      })
+      rows = [
+        [label], [],
+        ['品項名稱', '規格', '單位', '總數量', '總金額'],
+        ...Object.values(map).map(r => [r.product, r.spec, r.unit, r.qty, r.total]),
+        [],
+        ['合計', '', '', Object.values(map).reduce((s,r)=>s+r.qty,0), Object.values(map).reduce((s,r)=>s+r.total,0)]
+      ]
+    } else if (reportType === 'cross') {
+      const stores = [...new Set(reportData.map(r => r.store))].sort()
+      const products = [...new Set(reportData.map(r => r.product))].sort()
+      const map = {}
+      reportData.forEach(r => {
+        if (!map[r.product]) map[r.product] = {}
+        map[r.product][r.store] = (map[r.product][r.store] || 0) + r.qty
+      })
+      rows = [
+        [label], [],
+        ['品項名稱', ...stores, '合計'],
+        ...products.map(p => [
+          p,
+          ...stores.map(s => map[p]?.[s] || 0),
+          stores.reduce((sum, s) => sum + (map[p]?.[s] || 0), 0)
+        ]),
+        ['合計', ...stores.map(s => products.reduce((sum,p)=>sum+(map[p]?.[s]||0),0)),
+          reportData.reduce((s,r)=>s+r.qty,0)]
+      ]
+    }
+
+    const csv = rows.map(row => row.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n')
+    const blob = new Blob(['\uFEFF' + csv], { type:'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    const typeLabel = { detail:'明細表', summary:'彙總表', cross:'交叉分析表' }[reportType]
+    a.download = `採購報表_${typeLabel}_${dateFrom||'全期'}_${dateTo||''}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const detailTotal = reportData ? reportData.reduce((s,r)=>s+r.total,0) : 0
+  const detailQty = reportData ? reportData.reduce((s,r)=>s+r.qty,0) : 0
+
+  return (
+    <div>
+      <h2 style={{ fontSize:18, fontWeight:700, marginBottom:16, color:C.text }}>採購報表</h2>
+
+      <div style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:12, padding:20, marginBottom:16 }}>
+        <div style={{ fontWeight:500, fontSize:13, color:C.text, marginBottom:14 }}>篩選條件</div>
+
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
+          <div>
+            <label style={{ fontSize:12, color:C.textMuted, display:'block', marginBottom:6 }}>日期區間</label>
+            <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+              <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
+                style={{ flex:1, padding:'7px 10px', border:`1px solid ${C.border}`, borderRadius:7, fontSize:12, color:C.text }} />
+              <span style={{ color:C.textMuted, fontSize:12 }}>～</span>
+              <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
+                style={{ flex:1, padding:'7px 10px', border:`1px solid ${C.border}`, borderRadius:7, fontSize:12, color:C.text }} />
+            </div>
+          </div>
+
+          <div>
+            <label style={{ fontSize:12, color:C.textMuted, display:'block', marginBottom:6 }}>報表類型</label>
+            <div style={{ display:'flex', gap:8 }}>
+              {[['detail','明細表'],['summary','彙總表'],['cross','交叉分析表']].map(([val,label]) => (
+                <button key={val} onClick={() => setReportType(val)}
+                  style={{ padding:'6px 14px', borderRadius:7, fontSize:12, cursor:'pointer', border:'1px solid',
+                    background: reportType === val ? C.primary : C.white,
+                    color: reportType === val ? C.white : C.textMuted,
+                    borderColor: reportType === val ? C.primary : C.border }}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label style={{ fontSize:12, color:C.textMuted, display:'block', marginBottom:6 }}>門市（可複選，不選表示全部）</label>
+            <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+              {storeOptions.map(s => (
+                <button key={s} onClick={() => toggleStore(s)}
+                  style={{ padding:'4px 12px', borderRadius:20, fontSize:11, cursor:'pointer', border:'1px solid',
+                    background: selectedStores.includes(s) ? C.primary : C.white,
+                    color: selectedStores.includes(s) ? C.white : C.textMuted,
+                    borderColor: selectedStores.includes(s) ? C.primary : C.border }}>
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label style={{ fontSize:12, color:C.textMuted, display:'block', marginBottom:6 }}>品項（可複選，不選表示全部）</label>
+            <div style={{ display:'flex', gap:6, flexWrap:'wrap', maxHeight:100, overflowY:'auto' }}>
+              {productOptions.map(p => (
+                <button key={p} onClick={() => toggleProduct(p)}
+                  style={{ padding:'4px 12px', borderRadius:20, fontSize:11, cursor:'pointer', border:'1px solid',
+                    background: selectedProducts.includes(p) ? C.blue : C.white,
+                    color: selectedProducts.includes(p) ? C.white : C.textMuted,
+                    borderColor: selectedProducts.includes(p) ? C.blue : C.border }}>
+                  {p}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display:'flex', gap:10, marginTop:16 }}>
+          <button onClick={generateReport}
+            style={{ background:C.primary, color:C.white, border:'none', padding:'9px 24px', borderRadius:8, fontSize:13, cursor:'pointer', fontWeight:500 }}>
+            產生報表
+          </button>
+          {reportData && (
+            <button onClick={exportExcel}
+              style={{ background:'#1A7A4A', color:C.white, border:'none', padding:'9px 24px', borderRadius:8, fontSize:13, cursor:'pointer' }}>
+              輸出 Excel
+            </button>
+          )}
+          {(dateFrom || dateTo || selectedStores.length > 0 || selectedProducts.length > 0) && (
+            <button onClick={() => { setDateFrom(''); setDateTo(''); setSelectedStores([]); setSelectedProducts([]); setReportData(null) }}
+              style={{ background:C.redLight, color:C.red, border:`1px solid ${C.border}`, padding:'9px 16px', borderRadius:8, fontSize:13, cursor:'pointer' }}>
+              清除
+            </button>
+          )}
+        </div>
+      </div>
+
+      {reportData && (
+        <div style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:12, padding:20 }}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
+            <div style={{ fontSize:13, fontWeight:500, color:C.text }}>
+              {{ detail:'明細表', summary:'彙總表', cross:'各門市採購量交叉分析表' }[reportType]}
+              <span style={{ fontSize:11, color:C.textMuted, marginLeft:10 }}>
+                共 {reportData.length} 筆　總數量：{detailQty}　總金額：NT$ {detailTotal.toLocaleString()}
+              </span>
+            </div>
+          </div>
+
+          {reportType === 'detail' && (
+            <div style={{ overflowX:'auto' }}>
+              <div style={{ display:'grid', gridTemplateColumns:'100px 120px 1fr 100px 60px 60px 80px 90px', gap:6, padding:'5px 10px', background:C.primaryLight, borderRadius:6, marginBottom:4, fontSize:11, color:C.primaryDark, fontWeight:500, minWidth:700 }}>
+                <span>日期</span><span>門市</span><span>品項名稱</span><span>規格</span><span style={{textAlign:'center'}}>單位</span><span style={{textAlign:'center'}}>數量</span><span style={{textAlign:'right'}}>單價</span><span style={{textAlign:'right'}}>金額</span>
+              </div>
+              {reportData.map((r, idx) => (
+                <div key={idx} style={{ display:'grid', gridTemplateColumns:'100px 120px 1fr 100px 60px 60px 80px 90px', gap:6, padding:'5px 10px', borderLeft:`2px solid ${C.border}`, marginBottom:2, fontSize:11, color:C.text, minWidth:700, background: idx%2===0?'#FAF7F5':C.white }}>
+                  <span>{r.date}</span><span>{r.store}</span><span>{r.product}</span><span style={{color:C.textMuted}}>{r.spec}</span>
+                  <span style={{textAlign:'center'}}>{r.unit}</span><span style={{textAlign:'center'}}>{r.qty}</span>
+                  <span style={{textAlign:'right'}}>NT$ {r.price.toLocaleString()}</span>
+                  <span style={{textAlign:'right',color:C.blue,fontWeight:500}}>NT$ {r.total.toLocaleString()}</span>
+                </div>
+              ))}
+              <div style={{ display:'grid', gridTemplateColumns:'100px 120px 1fr 100px 60px 60px 80px 90px', gap:6, padding:'6px 10px', background:C.primaryLight, borderRadius:6, marginTop:4, fontSize:11, fontWeight:500, color:C.text, minWidth:700 }}>
+                <span>合計</span><span></span><span></span><span></span><span></span>
+                <span style={{textAlign:'center',color:C.blue}}>{detailQty}</span><span></span>
+                <span style={{textAlign:'right',color:C.blue}}>NT$ {detailTotal.toLocaleString()}</span>
+              </div>
+            </div>
+          )}
+
+          {reportType === 'summary' && (() => {
+            const map = {}
+            reportData.forEach(r => {
+              const k = `${r.product}__${r.unit}`
+              if (!map[k]) map[k] = { product:r.product, spec:r.spec, unit:r.unit, qty:0, total:0 }
+              map[k].qty += r.qty; map[k].total += r.total
+            })
+            const rows = Object.values(map)
+            return (
+              <div>
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 120px 60px 80px 100px', gap:6, padding:'5px 10px', background:C.primaryLight, borderRadius:6, marginBottom:4, fontSize:11, color:C.primaryDark, fontWeight:500 }}>
+                  <span>品項名稱</span><span>規格</span><span style={{textAlign:'center'}}>單位</span><span style={{textAlign:'center'}}>總數量</span><span style={{textAlign:'right'}}>總金額</span>
+                </div>
+                {rows.map((r, idx) => (
+                  <div key={idx} style={{ display:'grid', gridTemplateColumns:'1fr 120px 60px 80px 100px', gap:6, padding:'5px 10px', borderLeft:`2px solid ${C.border}`, marginBottom:2, fontSize:11, color:C.text, background: idx%2===0?'#FAF7F5':C.white }}>
+                    <span>{r.product}</span><span style={{color:C.textMuted}}>{r.spec}</span>
+                    <span style={{textAlign:'center'}}>{r.unit}</span>
+                    <span style={{textAlign:'center',color:C.blue,fontWeight:500}}>{r.qty}</span>
+                    <span style={{textAlign:'right',color:C.blue,fontWeight:500}}>NT$ {r.total.toLocaleString()}</span>
+                  </div>
+                ))}
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 120px 60px 80px 100px', gap:6, padding:'6px 10px', background:C.primaryLight, borderRadius:6, marginTop:4, fontSize:11, fontWeight:500, color:C.text }}>
+                  <span>合計</span><span></span><span></span>
+                  <span style={{textAlign:'center',color:C.blue}}>{rows.reduce((s,r)=>s+r.qty,0)}</span>
+                  <span style={{textAlign:'right',color:C.blue}}>NT$ {rows.reduce((s,r)=>s+r.total,0).toLocaleString()}</span>
+                </div>
+              </div>
+            )
+          })()}
+
+          {reportType === 'cross' && (() => {
+            const stores = [...new Set(reportData.map(r => r.store))].sort()
+            const products = [...new Set(reportData.map(r => r.product))].sort()
+            const map = {}
+            reportData.forEach(r => {
+              if (!map[r.product]) map[r.product] = {}
+              map[r.product][r.store] = (map[r.product][r.store] || 0) + r.qty
+            })
+            const colW = `1fr ${stores.map(()=>'80px').join(' ')} 80px`
+            return (
+              <div style={{ overflowX:'auto' }}>
+                <div style={{ display:'grid', gridTemplateColumns:colW, gap:6, padding:'5px 10px', background:C.primaryLight, borderRadius:6, marginBottom:4, fontSize:11, color:C.primaryDark, fontWeight:500, minWidth:400 }}>
+                  <span>品項名稱</span>
+                  {stores.map(s => <span key={s} style={{textAlign:'center'}}>{s}</span>)}
+                  <span style={{textAlign:'center'}}>合計</span>
+                </div>
+                {products.map((p, idx) => (
+                  <div key={idx} style={{ display:'grid', gridTemplateColumns:colW, gap:6, padding:'5px 10px', borderLeft:`2px solid ${C.border}`, marginBottom:2, fontSize:11, color:C.text, background: idx%2===0?'#FAF7F5':C.white, minWidth:400 }}>
+                    <span>{p}</span>
+                    {stores.map(s => <span key={s} style={{textAlign:'center',color: map[p]?.[s] ? C.blue : C.textMuted}}>{map[p]?.[s] || '-'}</span>)}
+                    <span style={{textAlign:'center',fontWeight:500,color:C.blue}}>{stores.reduce((sum,s)=>sum+(map[p]?.[s]||0),0)}</span>
+                  </div>
+                ))}
+                <div style={{ display:'grid', gridTemplateColumns:colW, gap:6, padding:'6px 10px', background:C.primaryLight, borderRadius:6, marginTop:4, fontSize:11, fontWeight:500, color:C.text, minWidth:400 }}>
+                  <span>合計</span>
+                  {stores.map(s => <span key={s} style={{textAlign:'center',color:C.blue}}>{products.reduce((sum,p)=>sum+(map[p]?.[s]||0),0)}</span>)}
+                  <span style={{textAlign:'center',color:C.blue}}>{reportData.reduce((s,r)=>s+r.qty,0)}</span>
+                </div>
+              </div>
+            )
+          })()}
+        </div>
+      )}
+    </div>
   )
 }

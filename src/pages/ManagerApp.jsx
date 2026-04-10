@@ -27,7 +27,8 @@ export default function ManagerApp({ profile, onLogout }) {
   const [toast, setToast] = useState('')
   const [owners, setOwners] = useState({})
   const [filterProduct, setFilterProduct] = useState('')
-  const [filterDate, setFilterDate] = useState('')
+  const [filterDateFrom, setFilterDateFrom] = useState('')
+  const [filterDateTo, setFilterDateTo] = useState('')
   const [expandedIds, setExpandedIds] = useState({})
 
   useEffect(() => { fetchReqs(); fetchOwners() }, [nav])
@@ -44,6 +45,7 @@ export default function ManagerApp({ profile, onLogout }) {
     const { data: all } = await supabase
       .from('requisitions')
       .select('*, requisition_items(*, products(name, unit, price, spec))')
+      .eq('store_name', profile.store_name)
       .order('created_at', { ascending: false })
     setAllReqs(all || [])
     setReqs(nav === 'pending' ? (all || []).filter(r => r.status === 'pending') : (all || []))
@@ -95,8 +97,9 @@ export default function ManagerApp({ profile, onLogout }) {
   const filteredReqs = reqs.filter(req => {
     const matchProduct = !filterProduct || req.requisition_items?.some(i =>
       i.products?.name?.toLowerCase().includes(filterProduct.toLowerCase()))
-    const matchDate = !filterDate || req.submit_date === filterDate
-    return matchProduct && matchDate
+    const matchFrom = !filterDateFrom || req.submit_date >= filterDateFrom
+    const matchTo = !filterDateTo || req.submit_date <= filterDateTo
+    return matchProduct && matchFrom && matchTo
   })
 
   const ReqCard = ({ req, idx, showActions }) => {
@@ -227,14 +230,20 @@ export default function ManagerApp({ profile, onLogout }) {
         {nav === 'pending' ? `待審核請購單（${reqs.length} 件）` : '歷史請購紀錄'}
       </h2>
 
-      <div style={{ display:'flex', gap:10, marginBottom:16, flexWrap:'wrap' }}>
+      <div style={{ display:'flex', gap:10, marginBottom:16, flexWrap:'wrap', alignItems:'center' }}>
         <input value={filterProduct} onChange={e => setFilterProduct(e.target.value)}
           placeholder="🔍 搜尋品項名稱..."
           style={{ padding:'7px 12px', border:`1px solid ${C.border}`, borderRadius:7, fontSize:12, color:C.text, width:200 }} />
-        <input type="date" value={filterDate} onChange={e => setFilterDate(e.target.value)}
-          style={{ padding:'7px 12px', border:`1px solid ${C.border}`, borderRadius:7, fontSize:12, color:C.text }} />
-        {(filterProduct || filterDate) && (
-          <button onClick={() => { setFilterProduct(''); setFilterDate('') }}
+        <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+          <span style={{ fontSize:12, color:C.textMuted }}>日期</span>
+          <input type="date" value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)}
+            style={{ padding:'7px 10px', border:`1px solid ${C.border}`, borderRadius:7, fontSize:12, color:C.text }} />
+          <span style={{ fontSize:12, color:C.textMuted }}>～</span>
+          <input type="date" value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)}
+            style={{ padding:'7px 10px', border:`1px solid ${C.border}`, borderRadius:7, fontSize:12, color:C.text }} />
+        </div>
+        {(filterProduct || filterDateFrom || filterDateTo) && (
+          <button onClick={() => { setFilterProduct(''); setFilterDateFrom(''); setFilterDateTo('') }}
             style={{ padding:'7px 12px', border:`1px solid ${C.border}`, borderRadius:7, fontSize:12, color:C.red, background:C.redLight, cursor:'pointer' }}>
             清除篩選
           </button>
