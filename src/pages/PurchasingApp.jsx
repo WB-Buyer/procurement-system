@@ -546,16 +546,38 @@ function ReportPage({ allReqs }) {
 
           <div>
             <label style={{ fontSize:12, color:C.textMuted, display:'block', marginBottom:6 }}>品項（可複選，不選表示全部）</label>
-            <div style={{ display:'flex', gap:6, flexWrap:'wrap', maxHeight:100, overflowY:'auto' }}>
-              {productOptions.map(p => (
-                <button key={p} onClick={() => toggleProduct(p)}
-                  style={{ padding:'4px 12px', borderRadius:20, fontSize:11, cursor:'pointer', border:'1px solid',
-                    background: selectedProducts.includes(p) ? C.blue : C.white,
-                    color: selectedProducts.includes(p) ? C.white : C.textMuted,
-                    borderColor: selectedProducts.includes(p) ? C.blue : C.border }}>
-                  {p}
-                </button>
-              ))}
+            <div style={{ position:'relative' }}>
+              <div
+                onClick={() => document.getElementById('product-dropdown').classList.toggle('open')}
+                style={{ padding:'7px 12px', border:`1px solid ${C.border}`, borderRadius:7, fontSize:12, color: selectedProducts.length ? C.text : C.textMuted, cursor:'pointer', background:C.white, userSelect:'none', display:'flex', justifyContent:'space-between', alignItems:'center', minWidth:300 }}>
+                <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', flex:1 }}>
+                  {selectedProducts.length === 0 ? '全部品項' : selectedProducts.join('、')}
+                </span>
+                <span style={{ marginLeft:8, color:C.textMuted, fontSize:10 }}>▼</span>
+              </div>
+              <div id="product-dropdown"
+                style={{ display:'none', position:'absolute', top:'100%', left:0, right:0, background:C.white, border:`1px solid ${C.border}`, borderRadius:7, zIndex:100, maxHeight:240, overflowY:'auto', boxShadow:'0 4px 12px rgba(0,0,0,0.1)', marginTop:2 }}
+                className="product-dropdown-menu">
+                <style>{`.product-dropdown-menu.open { display: block !important; }`}</style>
+                <div style={{ padding:'6px 10px', borderBottom:`1px solid ${C.border}`, display:'flex', gap:8 }}>
+                  <button onClick={e => { e.stopPropagation(); setSelectedProducts([]) }}
+                    style={{ fontSize:11, padding:'2px 10px', borderRadius:20, border:`1px solid ${C.border}`, cursor:'pointer', background: selectedProducts.length === 0 ? C.blue : C.white, color: selectedProducts.length === 0 ? C.white : C.textMuted }}>
+                    全部
+                  </button>
+                  <span style={{ fontSize:11, color:C.textMuted, alignSelf:'center' }}>已選 {selectedProducts.length} 項</span>
+                </div>
+                {productOptions.map(p => (
+                  <div key={p} onClick={e => { e.stopPropagation(); toggleProduct(p) }}
+                    style={{ padding:'7px 12px', fontSize:12, cursor:'pointer', display:'flex', alignItems:'center', gap:8,
+                      background: selectedProducts.includes(p) ? '#F0F7FF' : C.white,
+                      color: selectedProducts.includes(p) ? C.blue : C.text }}>
+                    <span style={{ width:14, height:14, border:`1.5px solid ${selectedProducts.includes(p) ? C.blue : C.border}`, borderRadius:3, background: selectedProducts.includes(p) ? C.blue : C.white, display:'inline-flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                      {selectedProducts.includes(p) && <span style={{ color:C.white, fontSize:9, lineHeight:1 }}>✓</span>}
+                    </span>
+                    {p}
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>
