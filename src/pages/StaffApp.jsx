@@ -34,7 +34,13 @@ async function sendNotification(subject, body) {
 export default function StaffApp({ profile, onLogout }) {
   const [nav, setNav] = useState('catalog')
   const [products, setProducts] = useState([])
-  const [cart, setCart] = useState([])
+  const CART_KEY = `cart_${profile?.id}`
+  const [cart, setCart] = useState(() => {
+    try {
+      const saved = localStorage.getItem(`cart_${profile?.id}`)
+      return saved ? JSON.parse(saved) : []
+    } catch { return [] }
+  })
   const [myReqs, setMyReqs] = useState([])
   const [activeCat, setActiveCat] = useState('全部')
   const [search, setSearch] = useState('')
@@ -50,6 +56,9 @@ export default function StaffApp({ profile, onLogout }) {
   const [owners, setOwners] = useState({})
 
   useEffect(() => { fetchProducts(); fetchOwners() }, [])
+  useEffect(() => {
+    try { localStorage.setItem(CART_KEY, JSON.stringify(cart)) } catch {}
+  }, [cart])
   useEffect(() => { if (nav === 'myreqs') fetchMyReqs() }, [nav])
 
   async function fetchOwners() {
@@ -122,6 +131,7 @@ export default function StaffApp({ profile, onLogout }) {
     )
 
     setCart([]); setSubmitNote(''); setSubmitting(false)
+    try { localStorage.removeItem(CART_KEY) } catch {}
     showToast('請購單已送出！等待店長審核')
     setNav('myreqs')
   }
@@ -200,7 +210,7 @@ export default function StaffApp({ profile, onLogout }) {
 
       {/* MODAL */}
       {modalProduct && (
-        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.4)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000 }}>
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.4)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000 }} onClick={e => e.stopPropagation()}>
           <div style={{ background:C.white, borderRadius:14, padding:24, width:380, maxWidth:'90vw' }}>
             <h3 style={{ fontSize:15, fontWeight:700, marginBottom:4, color:C.text }}>加入購物車</h3>
             <p style={{ fontSize:12, color:C.textMuted, marginBottom:18 }}>{modalProduct.name}</p>

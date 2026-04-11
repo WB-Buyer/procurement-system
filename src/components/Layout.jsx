@@ -18,7 +18,7 @@ const C = {
 }
 
 export default function Layout({ profile, onLogout, navItems, activeNav, onNav, children }) {
-  const [collapsed, setCollapsed] = useState(false)
+  const [collapsed, setCollapsed] = useState(true)
 
   const roleLabel = { staff:'門市員工', manager:'門市店長', purchasing:'採購人員', admin:'超級管理員' }
   const roleColor = { staff:'#EDE5DC', manager:'#EDE5DC', purchasing:'#EDE5DC', admin:'#C4B1A0' }
