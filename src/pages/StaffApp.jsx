@@ -24,10 +24,10 @@ const NOTIFY_EMAIL = 'wb25236700@gmail.com'
 async function sendNotification(subject, body) {
   try {
     await supabase.functions.invoke('send-email', {
-      body: { to: NOTIFY_EMAIL, subject, body }
+      body: { subject, body }
     })
   } catch (e) {
-    console.log('Email notification skipped:', e.message)
+    console.log('LINE notification skipped:', e.message)
   }
 }
 
@@ -112,9 +112,13 @@ export default function StaffApp({ profile, onLogout }) {
     }))
     await supabase.from('requisition_items').insert(items)
 
+    const orderId = generateOrderId(req.created_at, 1)
     await sendNotification(
-      `【晶緻集團請購系統】新請購單通知`,
-      `${profile.store_name} ${profile.full_name} 已送出請購單，共 ${cart.length} 項品項，請店長審核。`
+      `【晶緻集團請購系統】新請購單`,
+      `📋 新請購單待審核
+門市：${profile.store_name}
+單號：${orderId}
+請店長盡快審核。`
     )
 
     setCart([]); setSubmitNote(''); setSubmitting(false)

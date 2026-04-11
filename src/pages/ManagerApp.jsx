@@ -17,6 +17,16 @@ function generateOrderId(createdAt, seq) {
   return `#${y}${m}${day}-${String(seq).padStart(2, '0')}`
 }
 
+async function sendNotification(subject, body) {
+  try {
+    await supabase.functions.invoke('send-email', {
+      body: { subject, body }
+    })
+  } catch (e) {
+    console.log('LINE notification skipped:', e.message)
+  }
+}
+
 export default function ManagerApp({ profile, onLogout }) {
   const [nav, setNav] = useState('pending')
   const [reqs, setReqs] = useState([])
@@ -60,14 +70,30 @@ export default function ManagerApp({ profile, onLogout }) {
     const now = new Date()
     const twNow = new Date(now.getTime() + 8 * 60 * 60 * 1000)
     const approvedAt = twNow.toISOString().replace('T', ' ').substring(0, 23)
-    await supabase.from('requisitions').update({ status: 'manager_approved', approved_at: approvedAt }).eq('id', id)
+    const { data: req } = await supabase.from('requisitions').update({ status: 'manager_approved', approved_at: approvedAt }).eq('id', id).select().single()
+    const orderId = req ? generateOrderId(req.created_at, 1) : id
+    await sendNotification(
+      '【晶緻集團請購系統】請購單已核准',
+      `✅ 請購單已核准
+門市：${profile.store_name}
+單號：${orderId}
+已轉送採購人員處理。`
+    )
     showToast('已核准，轉送採購確認')
     fetchReqs()
   }
 
   async function reject(id) {
     if (!rejectReason.trim()) { alert('請填寫退回原因'); return }
-    await supabase.from('requisitions').update({ status: 'rejected', reject_reason: rejectReason }).eq('id', id)
+    const { data: req } = await supabase.from('requisitions').update({ status: 'rejected', reject_reason: rejectReason }).eq('id', id).select().single()
+    const orderId = req ? generateOrderId(req.created_at, 1) : id
+    await sendNotification(
+      '【晶緻集團請購系統】請購單已退回',
+      `❌ 請購單已退回
+門市：${profile.store_name}
+單號：${orderId}
+退回原因：${rejectReason}`
+    )
     setRejectingId(null); setRejectReason('')
     showToast('已退回，員工將收到通知')
     fetchReqs()
