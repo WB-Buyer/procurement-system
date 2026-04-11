@@ -34,13 +34,8 @@ async function sendNotification(subject, body) {
 export default function StaffApp({ profile, onLogout }) {
   const [nav, setNav] = useState('catalog')
   const [products, setProducts] = useState([])
-  const CART_KEY = `cart_${profile?.id}`
-  const [cart, setCart] = useState(() => {
-    try {
-      const saved = localStorage.getItem(`cart_${profile?.id}`)
-      return saved ? JSON.parse(saved) : []
-    } catch { return [] }
-  })
+  const [cart, setCart] = useState([])
+  const [cartLoading, setCartLoading] = useState(true)
   const [myReqs, setMyReqs] = useState([])
   const [activeCat, setActiveCat] = useState('全部')
   const [search, setSearch] = useState('')
@@ -55,10 +50,7 @@ export default function StaffApp({ profile, onLogout }) {
   const [toast, setToast] = useState('')
   const [owners, setOwners] = useState({})
 
-  useEffect(() => { fetchProducts(); fetchOwners() }, [])
-  useEffect(() => {
-    try { localStorage.setItem(CART_KEY, JSON.stringify(cart)) } catch {}
-  }, [cart])
+  useEffect(() => { fetchProducts(); fetchOwners(); fetchCart() }, [])
   useEffect(() => { if (nav === 'myreqs') fetchMyReqs() }, [nav])
 
   async function fetchOwners() {
@@ -66,6 +58,24 @@ export default function StaffApp({ profile, onLogout }) {
     const map = {}
     ;(data || []).forEach(o => { map[`${o.store_name}__${o.product_id}`] = o.owner_name })
     setOwners(map)
+  }
+
+  async function fetchCart() {
+    setCartLoading(true)
+    const { data } = await supabase
+      .from('cart_items')
+      .select('*, products(name, unit, price, category, brand, spec, expiry_info, extra_note, stock_unit)')
+      .eq('user_id', profile.id)
+      .order('created_at', { ascending: true })
+    setCart((data || []).map(item => ({
+      ...item.products,
+      id: item.product_id,
+      cartItemId: item.id,
+      reqQty: item.req_qty,
+      stockInfo: `${item.stock_qty} ${item.stock_unit}`,
+      itemNote: item.item_note || ''
+    })))
+    setCartLoading(false)
   }
 
   async function fetchProducts() {
@@ -87,18 +97,35 @@ export default function StaffApp({ profile, onLogout }) {
     setStockQty(''); setStockUnit(''); setItemNote(''); setReqCount('')
   }
 
-  function confirmAddToCart() {
+  async function confirmAddToCart() {
     if (!reqCount || !stockQty) { alert('請選擇請購數量與庫存數量（必填）'); return }
-    setCart(prev => [...prev, { ...modalProduct, reqQty: parseInt(reqCount), stockInfo: `${stockQty} ${modalProduct.stock_unit || modalProduct.unit}`, itemNote }])
+    const stockUnit = modalProduct.stock_unit || modalProduct.unit
+    await supabase.from('cart_items').upsert({
+      user_id: profile.id,
+      store_name: profile.store_name,
+      product_id: modalProduct.id,
+      req_qty: parseInt(reqCount),
+      stock_qty: parseInt(stockQty),
+      stock_unit: stockUnit,
+      item_note: itemNote
+    }, { onConflict: 'user_id,product_id' })
     setModalProduct(null)
     showToast(`已加入購物車：${modalProduct.name}`)
+    fetchCart()
   }
 
-  function changeQty(idx, delta) {
-    setCart(prev => prev.map((item, i) => i === idx ? { ...item, reqQty: Math.max(1, item.reqQty + delta) } : item))
+  async function changeQty(idx, delta) {
+    const item = cart[idx]
+    const newQty = Math.max(1, item.reqQty + delta)
+    await supabase.from('cart_items').update({ req_qty: newQty }).eq('id', item.cartItemId)
+    setCart(prev => prev.map((it, i) => i === idx ? { ...it, reqQty: newQty } : it))
   }
 
-  function removeFromCart(idx) { setCart(prev => prev.filter((_, i) => i !== idx)) }
+  async function removeFromCart(idx) {
+    const item = cart[idx]
+    await supabase.from('cart_items').delete().eq('id', item.cartItemId)
+    setCart(prev => prev.filter((_, i) => i !== idx))
+  }
 
   async function submitRequisition() {
     if (cart.length === 0) return
@@ -130,8 +157,8 @@ export default function StaffApp({ profile, onLogout }) {
 請店長盡快審核。`
     )
 
+    await supabase.from('cart_items').delete().eq('user_id', profile.id)
     setCart([]); setSubmitNote(''); setSubmitting(false)
-    try { localStorage.removeItem(CART_KEY) } catch {}
     showToast('請購單已送出！等待店長審核')
     setNav('myreqs')
   }
@@ -271,7 +298,9 @@ export default function StaffApp({ profile, onLogout }) {
       {nav === 'cart' && (
         <div>
           <h2 style={{ fontSize:18, fontWeight:700, marginBottom:16, color:C.text }}>購物車</h2>
-          {cart.length === 0 ? (
+          {cartLoading ? (
+            <div style={{ textAlign:'center', padding:'60px 0', color:C.textMuted }}>載入中...</div>
+          ) : cart.length === 0 ? (
             <div style={{ textAlign:'center', padding:'60px 0', color:C.textMuted }}>
               <div style={{ fontSize:40, marginBottom:12 }}>🛒</div>
               <p style={{ marginBottom:16 }}>購物車是空的</p>
