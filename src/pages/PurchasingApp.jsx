@@ -20,12 +20,13 @@ function generateOrderId(createdAt, seq) {
 function formatDateTime(iso) {
   if (!iso) return '-'
   const d = new Date(iso)
-  const tw = new Date(d.getTime() + 8 * 60 * 60 * 1000)
-  const y = tw.getUTCFullYear()
-  const mo = String(tw.getUTCMonth() + 1).padStart(2, '0')
-  const day = String(tw.getUTCDate()).padStart(2, '0')
-  const h = String(tw.getUTCHours()).padStart(2, '0')
-  const mi = String(tw.getUTCMinutes()).padStart(2, '0')
+  // 強制轉為 UTC+8（台灣時區），避免 Vercel 伺服器 UTC 環境顯示錯誤
+  const local = new Date(d.getTime() + 8 * 60 * 60 * 1000)
+  const y = local.getUTCFullYear()
+  const mo = String(local.getUTCMonth() + 1).padStart(2, '0')
+  const day = String(local.getUTCDate()).padStart(2, '0')
+  const h = String(local.getUTCHours()).padStart(2, '0')
+  const mi = String(local.getUTCMinutes()).padStart(2, '0')
   return `${y}/${mo}/${day} ${h}:${mi}`
 }
 
