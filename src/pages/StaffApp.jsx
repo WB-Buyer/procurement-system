@@ -67,14 +67,27 @@ export default function StaffApp({ profile, onLogout }) {
       .select('*, products(name, unit, price, category, brand, spec, expiry_info, extra_note, stock_unit)')
       .eq('user_id', profile.id)
       .order('created_at', { ascending: true })
-    setCart((data || []).map(item => ({
-      ...item.products,
-      id: item.product_id,
-      cartItemId: item.id,
-      reqQty: item.req_qty,
-      stockInfo: `${item.stock_qty} ${item.stock_unit}`,
-      itemNote: item.item_note || ''
-    })))
+    const cartItems = (data || []).map(item => ({
+  ...item.products,
+  id: item.product_id,
+  cartItemId: item.id,
+  reqQty: item.req_qty,
+  stockInfo: `${item.stock_qty} ${item.stock_unit}`,
+  itemNote: item.item_note || ''
+}))
+
+// 依照 CATEGORIES 定義的順序排序
+const categoryOrder = ['保養品', '美容耗材', '微整針劑', '藥品', '醫療耗材', '手術耗材', '手術器械']
+cartItems.sort((a, b) => {
+  const ai = categoryOrder.indexOf(a.category)
+  const bi = categoryOrder.indexOf(b.category)
+  const ao = ai === -1 ? 999 : ai
+  const bo = bi === -1 ? 999 : bi
+  if (ao !== bo) return ao - bo
+  return (a.name || '').localeCompare(b.name || '', 'zh-TW')
+})
+
+setCart(cartItems)
     setCartLoading(false)
   }
 
