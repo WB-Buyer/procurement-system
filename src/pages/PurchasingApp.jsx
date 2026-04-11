@@ -19,14 +19,11 @@ function generateOrderId(createdAt, seq) {
 
 function formatDateTime(iso) {
   if (!iso) return '-'
-  const d = new Date(iso)
-  // 強制轉為 UTC+8（台灣時區），避免 Vercel 伺服器 UTC 環境顯示錯誤
-  const local = new Date(d.getTime() + 8 * 60 * 60 * 1000)
-  const y = local.getUTCFullYear()
-  const mo = String(local.getUTCMonth() + 1).padStart(2, '0')
-  const day = String(local.getUTCDate()).padStart(2, '0')
-  const h = String(local.getUTCHours()).padStart(2, '0')
-  const mi = String(local.getUTCMinutes()).padStart(2, '0')
+  // Supabase 儲存的為本地時間字串，直接解析避免 new Date() 自動時區轉換
+  const s = iso.replace('T', ' ').substring(0, 16)
+  const [datePart, timePart] = s.split(' ')
+  const [y, mo, day] = datePart.split('-')
+  const [h, mi] = timePart.split(':')
   return `${y}/${mo}/${day} ${h}:${mi}`
 }
 
