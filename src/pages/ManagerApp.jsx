@@ -56,8 +56,11 @@ export default function ManagerApp({ profile, onLogout }) {
   function toggleExpand(id) { setExpandedIds(prev => ({ ...prev, [id]: !prev[id] })) }
 
   async function approve(id) {
-    const now = new Date().toISOString()
-    await supabase.from('requisitions').update({ status: 'manager_approved', approved_at: now }).eq('id', id)
+    // 產生 UTC+8 台灣時間字串，配合 Supabase TIMESTAMP（無時區）欄位
+    const now = new Date()
+    const twNow = new Date(now.getTime() + 8 * 60 * 60 * 1000)
+    const approvedAt = twNow.toISOString().replace('T', ' ').substring(0, 23)
+    await supabase.from('requisitions').update({ status: 'manager_approved', approved_at: approvedAt }).eq('id', id)
     showToast('已核准，轉送採購確認')
     fetchReqs()
   }
