@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 const C = {
   primary: '#C4B1A0',
@@ -9,23 +9,116 @@ const C = {
   white: '#FFFFFF',
   border: '#D9CEC5',
   sidebar: '#F7F3EF',
-  topbar: '#3D3530',
   text: '#3D3530',
   textMuted: '#A59482',
   active: '#C4B1A0',
   activeBg: '#EDE5DC',
-  badge: '#A59482',
+}
+
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth < 768)
+    window.addEventListener('resize', handler)
+    return () => window.removeEventListener('resize', handler)
+  }, [])
+  return isMobile
 }
 
 export default function Layout({ profile, onLogout, navItems, activeNav, onNav, children }) {
   const [collapsed, setCollapsed] = useState(true)
+  const isMobile = useIsMobile()
 
   const roleLabel = { staff:'門市員工', manager:'門市店長', purchasing:'採購人員', admin:'超級管理員' }
   const roleColor = { staff:'#EDE5DC', manager:'#EDE5DC', purchasing:'#EDE5DC', admin:'#C4B1A0' }
-  const roleText = { staff:'#A59482', manager:'#A59482', purchasing:'#A59482', admin:'#3D3530' }
+  const roleText  = { staff:'#A59482', manager:'#A59482', purchasing:'#A59482', admin:'#3D3530' }
+  const homeNav   = { staff:'catalog', manager:'pending', purchasing:'dashboard', admin:'dashboard' }
 
-  const homeNav = { staff:'catalog', manager:'pending', purchasing:'dashboard', admin:'dashboard' }
+  /* ── 手機版 ── */
+  if (isMobile) {
+    return (
+      <div style={{ display:'flex', flexDirection:'column', height:'100vh', overflow:'hidden', background:'#FAF7F5' }}>
 
+        {/* 頂部列 */}
+        <div style={{
+          background: C.primaryLight,
+          padding: '0 14px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          height: 48,
+          flexShrink: 0,
+          borderBottom: `1px solid ${C.border}`,
+        }}>
+          <div style={{ display:'flex', alignItems:'center', gap:8 }}
+            onClick={() => onNav(homeNav[profile?.role] || 'catalog')}>
+            <div style={{ width:30, height:30, borderRadius:'50%', overflow:'hidden', background:'transparent', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+              <img src="/logo.png" alt="logo" style={{ width:'100%', height:'100%', objectFit:'cover' }}
+                onError={e => { e.target.style.display='none'; e.target.parentNode.innerHTML=`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C4B1A0" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/></svg>` }} />
+            </div>
+            <span style={{ color:C.text, fontWeight:700, fontSize:13 }}>晶緻集團請購系統</span>
+          </div>
+          <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+            <span style={{ background:roleColor[profile?.role], color:roleText[profile?.role], fontSize:10, fontWeight:500, padding:'2px 8px', borderRadius:20 }}>
+              {roleLabel[profile?.role]}
+            </span>
+            <button onClick={onLogout}
+              style={{ background:'transparent', border:'1px solid #5D5048', color:'#C4B1A0', padding:'3px 10px', borderRadius:6, fontSize:11, cursor:'pointer' }}>
+              登出
+            </button>
+          </div>
+        </div>
+
+        {/* 內容區 — 底部留空間給 tab bar */}
+        <div style={{ flex:1, overflowY:'auto', padding:'14px 12px', paddingBottom: 64 }}>
+          {children}
+        </div>
+
+        {/* 底部 Tab Bar */}
+        <div style={{
+          position: 'fixed',
+          bottom: 0, left: 0, right: 0,
+          height: 56,
+          background: C.white,
+          borderTop: `1px solid ${C.border}`,
+          display: 'flex',
+          zIndex: 100,
+        }}>
+          {navItems.map(item => {
+            const isActive = activeNav === item.id
+            return (
+              <div key={item.id} onClick={() => onNav(item.id)}
+                style={{
+                  flex: 1,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  borderTop: isActive ? `2px solid ${C.primary}` : '2px solid transparent',
+                  color: isActive ? C.primaryDark : C.textMuted,
+                  position: 'relative',
+                  paddingTop: 2,
+                }}>
+                <span style={{ fontSize: 18, lineHeight: 1.2 }}>{item.icon}</span>
+                <span style={{ fontSize: 9, marginTop: 2, fontWeight: isActive ? 500 : 400 }}>{item.label}</span>
+                {item.badge > 0 && (
+                  <span style={{
+                    position: 'absolute', top: 4, right: '50%', transform: 'translateX(10px)',
+                    background: C.primary, color: '#fff',
+                    borderRadius: 10, padding: '0 5px',
+                    fontSize: 9, lineHeight: '16px', minWidth: 16, textAlign: 'center',
+                  }}>{item.badge}</span>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    )
+  }
+
+  /* ── 電腦版（原版不動）── */
   return (
     <div style={{ display:'flex', flexDirection:'column', height:'100vh', overflow:'hidden' }}>
       <div style={{ background:C.primaryLight, padding:'0 20px', display:'flex', alignItems:'center', justifyContent:'space-between', height:52, flexShrink:0, borderBottom:`1px solid ${C.border}` }}>
