@@ -19,15 +19,25 @@ function generateOrderId(createdAt, seq) {
 
 async function sendNotification(subject, body) {
   try {
-    await supabase.functions.invoke('send-email', {
-      body: { subject, body }
-    })
+    await supabase.functions.invoke('send-email', { body: { subject, body } })
   } catch (e) {
     console.log('LINE notification skipped:', e.message)
   }
 }
 
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768)
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth < 768)
+    window.addEventListener('resize', handler)
+    return () => window.removeEventListener('resize', handler)
+  }, [])
+  return isMobile
+}
+
 export default function ManagerApp({ profile, onLogout }) {
+  const isMobile = useIsMobile()
+
   const [nav, setNav] = useState('pending')
   const [reqs, setReqs] = useState([])
   const [allReqs, setAllReqs] = useState([])
@@ -66,7 +76,6 @@ export default function ManagerApp({ profile, onLogout }) {
   function toggleExpand(id) { setExpandedIds(prev => ({ ...prev, [id]: !prev[id] })) }
 
   async function approve(id) {
-    // 產生 UTC+8 台灣時間字串，配合 Supabase TIMESTAMP（無時區）欄位
     const now = new Date()
     const twNow = new Date(now.getTime() + 8 * 60 * 60 * 1000)
     const approvedAt = twNow.toISOString().replace('T', ' ').substring(0, 23)
@@ -74,10 +83,7 @@ export default function ManagerApp({ profile, onLogout }) {
     const orderId = req ? generateOrderId(req.created_at, 1) : id
     await sendNotification(
       '【晶緻集團請購系統】請購單已核准',
-      `✅ 請購單已核准
-門市：${profile.store_name}
-單號：${orderId}
-已轉送採購人員處理。`
+      `✅ 請購單已核准\n門市：${profile.store_name}\n單號：${orderId}\n已轉送採購人員處理。`
     )
     showToast('已核准，轉送採購確認')
     fetchReqs()
@@ -89,10 +95,7 @@ export default function ManagerApp({ profile, onLogout }) {
     const orderId = req ? generateOrderId(req.created_at, 1) : id
     await sendNotification(
       '【晶緻集團請購系統】請購單已退回',
-      `❌ 請購單已退回
-門市：${profile.store_name}
-單號：${orderId}
-退回原因：${rejectReason}`
+      `❌ 請購單已退回\n門市：${profile.store_name}\n單號：${orderId}\n退回原因：${rejectReason}`
     )
     setRejectingId(null); setRejectReason('')
     showToast('已退回，員工將收到通知')
@@ -105,10 +108,10 @@ export default function ManagerApp({ profile, onLogout }) {
 
   const statusMap = { pending:'待審核', manager_approved:'已核准', ordered:'已訂購', rejected:'已退回' }
   const statusStyle = {
-    pending: { bg:'#FEF3D7', color:'#633806' },
+    pending:          { bg:'#FEF3D7', color:'#633806' },
     manager_approved: { bg:C.primaryLight, color:C.primaryDark },
-    ordered: { bg:C.greenLight, color:C.green },
-    rejected: { bg:C.redLight, color:C.red }
+    ordered:          { bg:C.greenLight, color:C.green },
+    rejected:         { bg:C.redLight, color:C.red }
   }
 
   const ownerColors = [
@@ -131,7 +134,8 @@ export default function ManagerApp({ profile, onLogout }) {
     return matchProduct && matchFrom && matchTo
   })
 
-  const ReqCard = ({ req, idx, showActions }) => {
+  /* ── 單張請購卡（手機/電腦共用結構，內部用 isMobile 切版） ── */
+  const renderReqCard = (req, idx, showActions) => {
     const s = statusStyle[req.status] || statusStyle.pending
     const orderId = generateOrderId(req.created_at, idx + 1)
     const total = calcTotal(req)
@@ -142,61 +146,100 @@ export default function ManagerApp({ profile, onLogout }) {
     const hasMore = items.length > LIMIT
 
     return (
-      <div style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:12, padding:16 }}>
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:12 }}>
+      <div key={req.id} style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:12, padding:isMobile?14:16 }}>
+
+        {/* 標頭 */}
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:isMobile?10:12 }}>
           <div>
-            <div style={{ fontSize:13, fontWeight:500, color:C.text }}>成立編號：{orderId}</div>
+            <div style={{ fontSize:13, fontWeight:500, color:C.text }}>
+              {isMobile ? orderId : `成立編號：${orderId}`}
+            </div>
             <div style={{ fontSize:12, color:C.textMuted, marginTop:4 }}>
-              門市：{req.store_name}　送單日期：{req.submit_date}
+              {isMobile
+                ? `${req.store_name}　${req.submit_date}`
+                : `門市：${req.store_name}　送單日期：${req.submit_date}`}
             </div>
           </div>
-          <span style={{ background:s.bg, color:s.color, padding:'3px 10px', borderRadius:20, fontSize:11, fontWeight:500 }}>
+          <span style={{ background:s.bg, color:s.color, padding:'3px 10px', borderRadius:20, fontSize:11, fontWeight:500, whiteSpace:'nowrap' }}>
             {statusMap[req.status]}
           </span>
         </div>
 
+        {/* 品項 — 電腦：表格 / 手機：堆疊列 */}
         <div style={{ fontSize:12, color:C.textMuted, marginBottom:6 }}>品項：</div>
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 100px 90px 110px 90px 90px 80px', gap:8, padding:'5px 10px', background:C.primaryLight, borderRadius:6, marginBottom:4, fontSize:11, color:C.primaryDark, fontWeight:500 }}>
-          <span>品項名稱</span>
-          <span>規格</span>
-          <span style={{ textAlign:'center' }}>請購數量</span>
-          <span style={{ textAlign:'center' }}>庫存數量</span>
-          <span style={{ textAlign:'right' }}>金額</span>
-          <span style={{ textAlign:'right' }}>備註</span>
-          <span style={{ textAlign:'center' }}>負責人</span>
-        </div>
+        {!isMobile && (
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 100px 90px 110px 90px 90px 80px', gap:8,
+            padding:'5px 10px', background:C.primaryLight, borderRadius:6, marginBottom:4,
+            fontSize:11, color:C.primaryDark, fontWeight:500 }}>
+            <span>品項名稱</span><span>規格</span>
+            <span style={{ textAlign:'center' }}>請購數量</span>
+            <span style={{ textAlign:'center' }}>庫存數量</span>
+            <span style={{ textAlign:'right' }}>金額</span>
+            <span style={{ textAlign:'right' }}>備註</span>
+            <span style={{ textAlign:'center' }}>負責人</span>
+          </div>
+        )}
 
         {visibleItems.map((i, ii) => {
           const owner = owners[`${req.store_name}__${i.product_id}`]
           const oc = owner ? ownerColors[owner.charCodeAt(0) % ownerColors.length] : null
+          const ownerTag = owner && oc
+            ? <span style={{ display:'inline-flex', alignItems:'center', gap:4,
+                background:oc.bg, color:oc.text, padding:'2px 7px', borderRadius:20, fontSize:10, fontWeight:500 }}>
+                <span style={{ width:5, height:5, borderRadius:'50%', background:oc.dot, display:'inline-block' }}></span>{owner}
+              </span>
+            : <span style={{ fontSize:11, color:C.textMuted }}>-</span>
+
+          if (isMobile) {
+            return (
+              <div key={ii} style={{ padding:'8px 0 8px 10px', borderLeft:`2px solid ${C.border}`, marginBottom:6 }}>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontSize:12, fontWeight:500, color:C.text }}>{i.products?.name}</div>
+                    <div style={{ fontSize:11, color:C.textMuted, marginTop:2 }}>
+                      規格：{i.products?.spec || '-'}　×{i.quantity} {i.products?.unit}
+                    </div>
+                    <div style={{ fontSize:11, color:C.textMuted }}>
+                      庫存：{i.stock_qty} {i.stock_unit}
+                    </div>
+                    {i.item_note && <div style={{ fontSize:11, color:C.textMuted }}>備註：{i.item_note}</div>}
+                  </div>
+                  <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:4, marginLeft:8 }}>
+                    <span style={{ fontSize:12, color:C.blue, fontWeight:500 }}>
+                      NT$ {((i.products?.price || 0) * i.quantity).toLocaleString()}
+                    </span>
+                    {ownerTag}
+                  </div>
+                </div>
+              </div>
+            )
+          }
+
           return (
-            <div key={ii} style={{ display:'grid', gridTemplateColumns:'1fr 100px 90px 110px 90px 90px 80px', gap:8, padding:'6px 10px', borderLeft:`2px solid ${C.border}`, marginBottom:3, alignItems:'center' }}>
+            <div key={ii} style={{ display:'grid', gridTemplateColumns:'1fr 100px 90px 110px 90px 90px 80px',
+              gap:8, padding:'6px 10px', borderLeft:`2px solid ${C.border}`, marginBottom:3, alignItems:'center' }}>
               <span style={{ fontSize:12, color:C.text }}>{i.products?.name}</span>
               <span style={{ fontSize:11, color:C.textMuted }}>{i.products?.spec || '-'}</span>
               <span style={{ fontSize:12, color:C.text, textAlign:'center' }}>×{i.quantity} {i.products?.unit}</span>
               <span style={{ fontSize:12, color:C.textMuted, textAlign:'center' }}>{i.stock_qty} {i.stock_unit}</span>
               <span style={{ fontSize:12, color:C.blue, fontWeight:500, textAlign:'right' }}>NT$ {((i.products?.price || 0) * i.quantity).toLocaleString()}</span>
               <span style={{ fontSize:11, color:C.textMuted, textAlign:'right', wordBreak:'break-all' }}>{i.item_note || '-'}</span>
-              <div style={{ display:'flex', justifyContent:'center' }}>
-                {owner && oc
-                  ? <span style={{ display:'inline-flex', alignItems:'center', gap:4, background:oc.bg, color:oc.text, padding:'2px 7px', borderRadius:20, fontSize:10, fontWeight:500 }}>
-                      <span style={{ width:5, height:5, borderRadius:'50%', background:oc.dot, display:'inline-block' }}></span>{owner}
-                    </span>
-                  : <span style={{ fontSize:11, color:C.textMuted }}>-</span>
-                }
-              </div>
+              <div style={{ display:'flex', justifyContent:'center' }}>{ownerTag}</div>
             </div>
           )
         })}
 
         {hasMore && (
           <button onClick={() => toggleExpand(req.id)}
-            style={{ background:'transparent', border:`1px solid ${C.border}`, color:C.primaryDark, padding:'4px 12px', borderRadius:20, fontSize:11, cursor:'pointer', marginTop:4 }}>
+            style={{ background:'transparent', border:`1px solid ${C.border}`, color:C.primaryDark,
+              padding:'4px 12px', borderRadius:20, fontSize:11, cursor:'pointer', marginTop:4 }}>
             {isExpanded ? '▲ 收合' : `▼ 展開全部 ${items.length} 項`}
           </button>
         )}
 
-        <div style={{ textAlign:'right', fontSize:13, fontWeight:500, color:C.blue, marginTop:10, paddingTop:8, borderTop:`1px solid ${C.border}` }}>
+        {/* 總金額 */}
+        <div style={{ textAlign:'right', fontSize:13, fontWeight:500, color:C.blue,
+          marginTop:10, paddingTop:8, borderTop:`1px solid ${C.border}` }}>
           總金額：NT$ {total.toLocaleString()}
         </div>
 
@@ -212,15 +255,20 @@ export default function ManagerApp({ profile, onLogout }) {
           </div>
         )}
 
+        {/* 操作按鈕 */}
         {showActions && req.status === 'pending' && (
           <div style={{ marginTop:12 }}>
             <div style={{ display:'flex', gap:8 }}>
               <button onClick={() => approve(req.id)}
-                style={{ background:C.green, color:C.white, border:'none', padding:'7px 20px', borderRadius:7, fontSize:12, cursor:'pointer', fontWeight:500 }}>
+                style={{ flex: isMobile ? 1 : undefined,
+                  background:C.green, color:C.white, border:'none',
+                  padding:'8px 20px', borderRadius:7, fontSize:12, cursor:'pointer', fontWeight:500 }}>
                 核准
               </button>
               <button onClick={() => { setRejectingId(rejectingId === req.id ? null : req.id); setRejectReason('') }}
-                style={{ background:C.white, color:C.red, border:'1px solid #F09595', padding:'7px 16px', borderRadius:7, fontSize:12, cursor:'pointer' }}>
+                style={{ flex: isMobile ? 1 : undefined,
+                  background:C.white, color:C.red, border:'1px solid #F09595',
+                  padding:'8px 16px', borderRadius:7, fontSize:12, cursor:'pointer' }}>
                 退回
               </button>
             </div>
@@ -228,14 +276,19 @@ export default function ManagerApp({ profile, onLogout }) {
               <div style={{ marginTop:10 }}>
                 <textarea value={rejectReason} onChange={e => setRejectReason(e.target.value)}
                   placeholder="請填寫退回原因（必填）..." rows={2}
-                  style={{ width:'100%', padding:'8px 10px', border:`1px solid ${C.border}`, borderRadius:7, fontSize:13, resize:'none', color:C.text }} />
+                  style={{ width:'100%', padding:'8px 10px', border:`1px solid ${C.border}`,
+                    borderRadius:7, fontSize:13, resize:'none', color:C.text, boxSizing:'border-box' }} />
                 <div style={{ display:'flex', gap:8, marginTop:6 }}>
                   <button onClick={() => reject(req.id)}
-                    style={{ background:C.red, color:C.white, border:'none', padding:'6px 14px', borderRadius:7, fontSize:12, cursor:'pointer' }}>
+                    style={{ flex: isMobile ? 1 : undefined,
+                      background:C.red, color:C.white, border:'none',
+                      padding:'6px 14px', borderRadius:7, fontSize:12, cursor:'pointer' }}>
                     確認退回
                   </button>
                   <button onClick={() => setRejectingId(null)}
-                    style={{ background:C.primaryLight, border:`1px solid ${C.border}`, padding:'6px 14px', borderRadius:7, fontSize:12, cursor:'pointer', color:C.text }}>
+                    style={{ flex: isMobile ? 1 : undefined,
+                      background:C.primaryLight, border:`1px solid ${C.border}`,
+                      padding:'6px 14px', borderRadius:7, fontSize:12, cursor:'pointer', color:C.text }}>
                     取消
                   </button>
                 </div>
@@ -255,25 +308,30 @@ export default function ManagerApp({ profile, onLogout }) {
         </div>
       )}
 
-      <h2 style={{ fontSize:18, fontWeight:700, marginBottom:12, color:C.text }}>
+      <h2 style={{ fontSize:isMobile?17:18, fontWeight:isMobile?500:700, marginBottom:isMobile?10:12, color:C.text }}>
         {nav === 'pending' ? `待審核請購單（${reqs.length} 件）` : '歷史請購紀錄'}
       </h2>
 
-      <div style={{ display:'flex', gap:10, marginBottom:16, flexWrap:'wrap', alignItems:'center' }}>
+      {/* 篩選列 */}
+      <div style={{ display:'flex', gap:8, marginBottom:14,
+        flexDirection: isMobile ? 'column' : 'row',
+        flexWrap: isMobile ? undefined : 'wrap', alignItems: isMobile ? 'stretch' : 'center' }}>
         <input value={filterProduct} onChange={e => setFilterProduct(e.target.value)}
           placeholder="🔍 搜尋品項名稱..."
-          style={{ padding:'7px 12px', border:`1px solid ${C.border}`, borderRadius:7, fontSize:12, color:C.text, width:200 }} />
-        <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+          style={{ padding:'8px 12px', border:`1px solid ${C.border}`, borderRadius:7,
+            fontSize:12, color:C.text, width: isMobile ? '100%' : 200, boxSizing:'border-box' }} />
+        <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
           <span style={{ fontSize:12, color:C.textMuted }}>日期</span>
           <input type="date" value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)}
-            style={{ padding:'7px 10px', border:`1px solid ${C.border}`, borderRadius:7, fontSize:12, color:C.text }} />
+            style={{ flex:1, padding:'8px 10px', border:`1px solid ${C.border}`, borderRadius:7, fontSize:12, color:C.text }} />
           <span style={{ fontSize:12, color:C.textMuted }}>～</span>
           <input type="date" value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)}
-            style={{ padding:'7px 10px', border:`1px solid ${C.border}`, borderRadius:7, fontSize:12, color:C.text }} />
+            style={{ flex:1, padding:'8px 10px', border:`1px solid ${C.border}`, borderRadius:7, fontSize:12, color:C.text }} />
         </div>
         {(filterProduct || filterDateFrom || filterDateTo) && (
           <button onClick={() => { setFilterProduct(''); setFilterDateFrom(''); setFilterDateTo('') }}
-            style={{ padding:'7px 12px', border:`1px solid ${C.border}`, borderRadius:7, fontSize:12, color:C.red, background:C.redLight, cursor:'pointer' }}>
+            style={{ padding:'8px 12px', border:`1px solid ${C.border}`, borderRadius:7,
+              fontSize:12, color:C.red, background:C.redLight, cursor:'pointer' }}>
             清除篩選
           </button>
         )}
@@ -285,9 +343,7 @@ export default function ManagerApp({ profile, onLogout }) {
         {!loading && filteredReqs.length === 0 && (
           <div style={{ color:C.textMuted, textAlign:'center', padding:'40px 0' }}>目前沒有符合條件的請購單</div>
         )}
-        {filteredReqs.map((req, idx) => (
-          <ReqCard key={req.id} req={req} idx={idx} showActions={nav === 'pending'} />
-        ))}
+        {filteredReqs.map((req, idx) => renderReqCard(req, idx, nav === 'pending'))}
       </div>
     </Layout>
   )

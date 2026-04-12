@@ -19,7 +19,6 @@ function generateOrderId(createdAt, seq) {
 
 function formatDateTime(iso) {
   if (!iso) return '-'
-  // Supabase 儲存的為本地時間字串，直接解析避免 new Date() 自動時區轉換
   const s = iso.replace('T', ' ').substring(0, 16)
   const [datePart, timePart] = s.split(' ')
   const [y, mo, day] = datePart.split('-')
@@ -41,7 +40,19 @@ function NoteInput({ reqId, itemId, defaultNote, onSave }) {
   )
 }
 
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768)
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth < 768)
+    window.addEventListener('resize', handler)
+    return () => window.removeEventListener('resize', handler)
+  }, [])
+  return isMobile
+}
+
 export default function PurchasingApp({ profile, onLogout }) {
+  const isMobile = useIsMobile()
+
   const [nav, setNav] = useState('dashboard')
   const [allReqs, setAllReqs] = useState([])
   const [owners, setOwners] = useState({})
@@ -50,6 +61,10 @@ export default function PurchasingApp({ profile, onLogout }) {
   const [rejectReason, setRejectReason] = useState('')
   const [expandedIds, setExpandedIds] = useState({})
   const [toast, setToast] = useState('')
+  const [filterProduct, setFilterProduct] = useState('')
+  const [filterDateFrom, setFilterDateFrom] = useState('')
+  const [filterDateTo, setFilterDateTo] = useState('')
+  const [filterStore, setFilterStore] = useState('')
 
   useEffect(() => { fetchAll(); fetchOwners() }, [])
 
@@ -80,12 +95,7 @@ export default function PurchasingApp({ profile, onLogout }) {
     await supabase.from('requisition_items').update({ purchase_note: note }).eq('id', itemId)
     setAllReqs(prev => prev.map(req => {
       if (req.id !== reqId) return req
-      return {
-        ...req,
-        requisition_items: req.requisition_items.map(i =>
-          i.id === itemId ? { ...i, purchase_note: note } : i
-        )
-      }
+      return { ...req, requisition_items: req.requisition_items.map(i => i.id === itemId ? { ...i, purchase_note: note } : i) }
     }))
   }
 
@@ -152,18 +162,20 @@ export default function PurchasingApp({ profile, onLogout }) {
     rejected: allReqs.filter(r => r.status === 'rejected').length,
   }
 
-  const [filterProduct, setFilterProduct] = useState('')
-  const [filterDateFrom, setFilterDateFrom] = useState('')
-  const [filterDateTo, setFilterDateTo] = useState('')
-  const [filterStore, setFilterStore] = useState('')
-
   const statusMap = { pending:'待審核', manager_approved:'待採購', ordered:'已訂購', rejected:'已退回' }
   const statusStyle = {
-    pending: { bg:'#FEF3D7', color:'#633806' },
+    pending:          { bg:'#FEF3D7', color:'#633806' },
     manager_approved: { bg:C.primaryLight, color:C.primaryDark },
-    ordered: { bg:C.greenLight, color:C.green },
-    rejected: { bg:C.redLight, color:C.red }
+    ordered:          { bg:C.greenLight, color:C.green },
+    rejected:         { bg:C.redLight, color:C.red }
   }
+
+  const ownerColors = [
+    { bg:'#E6F1FB', dot:'#185FA5', text:'#0C447C' },
+    { bg:'#D9F2E6', dot:'#1A7A4A', text:'#1A4A2E' },
+    { bg:'#EDE5DC', dot:'#A59482', text:'#3D3530' },
+    { bg:'#FEF3D7', dot:'#BA7517', text:'#633806' },
+  ]
 
   const baseReqs = nav === 'toorder' ? allReqs.filter(r => r.status === 'manager_approved') : allReqs
   const displayReqs = baseReqs.filter(req => {
@@ -179,14 +191,15 @@ export default function PurchasingApp({ profile, onLogout }) {
 
   const navItems = [
     { id:'dashboard', icon:'📊', label:'統計儀表板' },
-    { id:'toorder', icon:'📥', label:'待採購', badge: stats.toOrder },
-    { id:'all', icon:'📋', label:'全部訂單' },
-    { id:'report', icon:'📈', label:'採購報表' },
+    { id:'toorder',   icon:'📥', label:'待採購', badge: stats.toOrder },
+    { id:'all',       icon:'📋', label:'全部訂單' },
+    { id:'report',    icon:'📈', label:'採購報表' },
   ]
 
   const COLS = '1fr 100px 80px 90px 120px 90px 110px 90px'
 
-  const ReqCard = ({ req, idx }) => {
+  /* ── 單張請購卡（手機/電腦共用，內部用 isMobile 切版） ── */
+  const renderReqCard = (req, idx) => {
     const s = statusStyle[req.status] || statusStyle.pending
     const total = calcTotal(req)
     const orderId = generateOrderId(req.created_at, idx + 1)
@@ -197,94 +210,166 @@ export default function PurchasingApp({ profile, onLogout }) {
     const hasMore = items.length > LIMIT
     const isActionable = req.status === 'manager_approved'
 
+    const renderOwnerTag = (owner) => {
+      if (!owner || owner === '-') return <span style={{ fontSize:11, color:C.textMuted }}>-</span>
+      const oc = ownerColors[owner.charCodeAt(0) % ownerColors.length]
+      return (
+        <span style={{ display:'inline-flex', alignItems:'center', gap:4,
+          background:oc.bg, color:oc.text, padding:'2px 7px', borderRadius:20, fontSize:10, fontWeight:500 }}>
+          <span style={{ width:5, height:5, borderRadius:'50%', background:oc.dot, display:'inline-block' }}></span>
+          {owner}
+        </span>
+      )
+    }
+
     return (
-      <div style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:12, padding:16 }}>
+      <div key={req.id} style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:12, padding:isMobile?14:16 }}>
+
+        {/* 標頭 */}
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:10 }}>
           <div>
-            <div style={{ fontSize:13, fontWeight:500, color:C.text }}>成立編號：{orderId}</div>
-            {(nav === 'toorder' || nav === 'all') && (
-              <div style={{ fontSize:12, color:C.textMuted, marginTop:3 }}>簽核時間：{formatDateTime(req.approved_at)}</div>
+            <div style={{ fontSize:13, fontWeight:500, color:C.text }}>
+              {isMobile ? orderId : `成立編號：${orderId}`}
+            </div>
+            {(nav === 'toorder' || nav === 'all' || nav === 'dashboard') && (
+              <div style={{ fontSize:12, color:C.textMuted, marginTop:3 }}>
+                簽核：{formatDateTime(req.approved_at)}
+              </div>
             )}
             <div style={{ fontSize:12, color:C.textMuted, marginTop:3 }}>門市：{req.store_name}</div>
           </div>
-          <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-            <span style={{ fontSize:13, fontWeight:500, color:C.blue }}>總金額：NT$ {total.toLocaleString()}</span>
-            <span style={{ background:s.bg, color:s.color, padding:'3px 10px', borderRadius:20, fontSize:11, fontWeight:500 }}>{statusMap[req.status]}</span>
+          <div style={{ display:'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-end' : 'center', gap:8 }}>
+            <span style={{ fontSize:13, fontWeight:500, color:C.blue }}>NT$ {total.toLocaleString()}</span>
+            <span style={{ background:s.bg, color:s.color, padding:'3px 10px', borderRadius:20, fontSize:11, fontWeight:500, whiteSpace:'nowrap' }}>
+              {statusMap[req.status]}
+            </span>
           </div>
         </div>
 
+        {/* 品項 */}
         <div style={{ marginBottom:10 }}>
           <div style={{ fontSize:12, color:C.textMuted, marginBottom:6 }}>品項：</div>
-          <div style={{ display:'grid', gridTemplateColumns:COLS, gap:6, padding:'5px 10px', background:C.primaryLight, borderRadius:6, marginBottom:4, fontSize:11, color:C.primaryDark, fontWeight:500 }}>
-            <span>品項名稱</span>
-            <span>規格</span>
-            <span style={{ textAlign:'center' }}>採購數量</span>
-            <span style={{ textAlign:'center' }}>庫存數量</span>
-            <span style={{ textAlign:'center' }}>備註/請購原因</span>
-            <span style={{ textAlign:'right' }}>金額</span>
-            <span style={{ textAlign:'center' }}>採購說明</span>
-            <span style={{ textAlign:'center' }}>負責人</span>
-          </div>
-          {visibleItems.map((i, ii) => (
-            <div key={ii} style={{ display:'grid', gridTemplateColumns:COLS, gap:6, padding:'6px 10px', borderLeft:`2px solid ${C.border}`, marginBottom:3, alignItems:'center' }}>
-              <span style={{ fontSize:12, color:C.text }}>{i.products?.name}</span>
-              <span style={{ fontSize:11, color:C.textMuted }}>{i.products?.spec || '-'}</span>
-              <span style={{ fontSize:12, color:C.text, textAlign:'center' }}>×{i.quantity} {i.products?.unit}</span>
-              <span style={{ fontSize:12, color:C.textMuted, textAlign:'center' }}>{i.stock_qty} {i.stock_unit}</span>
-              <span style={{ fontSize:11, color:C.textMuted, textAlign:'center', wordBreak:'break-all' }}>{i.item_note || '-'}</span>
-              <span style={{ fontSize:12, color:C.blue, fontWeight:500, textAlign:'right' }}>NT$ {((i.products?.price||0)*i.quantity).toLocaleString()}</span>
-              {isActionable
-                ? <NoteInput key={`${req.id}-${i.id}`} reqId={req.id} itemId={i.id} defaultNote={i.purchase_note||''} onSave={saveItemNote} />
-                : <span style={{ fontSize:11, color:C.textMuted, textAlign:'center' }}>{i.purchase_note || '-'}</span>
-              }
-              {(() => {
-                const owner = getOwner(req.store_name, i.product_id)
-                if (owner === '-') return <span style={{ fontSize:11, color:C.textMuted, textAlign:'center' }}>-</span>
-                const colors = [
-                  { bg:'#E6F1FB', dot:'#185FA5', text:'#0C447C' },
-                  { bg:'#D9F2E6', dot:'#1A7A4A', text:'#1A4A2E' },
-                  { bg:'#EDE5DC', dot:'#A59482', text:'#3D3530' },
-                  { bg:'#FEF3D7', dot:'#BA7517', text:'#633806' },
-                ]
-                const c = colors[owner.charCodeAt(0) % colors.length]
-                return (
-                  <div style={{ display:'flex', justifyContent:'center' }}>
-                    <span style={{ display:'inline-flex', alignItems:'center', gap:5, background:c.bg, color:c.text, padding:'2px 8px', borderRadius:20, fontSize:10, fontWeight:500 }}>
-                      <span style={{ width:6, height:6, borderRadius:'50%', background:c.dot, flexShrink:0, display:'inline-block' }}></span>
-                      {owner}
-                    </span>
-                  </div>
-                )
-              })()}
+
+          {/* 電腦：表頭列 */}
+          {!isMobile && (
+            <div style={{ display:'grid', gridTemplateColumns:COLS, gap:6, padding:'5px 10px',
+              background:C.primaryLight, borderRadius:6, marginBottom:4,
+              fontSize:11, color:C.primaryDark, fontWeight:500 }}>
+              <span>品項名稱</span><span>規格</span>
+              <span style={{ textAlign:'center' }}>採購數量</span>
+              <span style={{ textAlign:'center' }}>庫存數量</span>
+              <span style={{ textAlign:'center' }}>備註/請購原因</span>
+              <span style={{ textAlign:'right' }}>金額</span>
+              <span style={{ textAlign:'center' }}>採購說明</span>
+              <span style={{ textAlign:'center' }}>負責人</span>
             </div>
-          ))}
+          )}
+
+          {visibleItems.map((i, ii) => {
+            const owner = getOwner(req.store_name, i.product_id)
+
+            if (isMobile) {
+              return (
+                <div key={ii} style={{ padding:'8px 0 8px 10px', borderLeft:`2px solid ${C.border}`, marginBottom:6 }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
+                    <div style={{ flex:1 }}>
+                      <div style={{ fontSize:12, fontWeight:500, color:C.text }}>{i.products?.name}</div>
+                      <div style={{ fontSize:11, color:C.textMuted, marginTop:2 }}>
+                        規格：{i.products?.spec || '-'}　×{i.quantity} {i.products?.unit}
+                      </div>
+                      <div style={{ fontSize:11, color:C.textMuted }}>
+                        庫存：{i.stock_qty} {i.stock_unit}
+                      </div>
+                      {i.item_note && <div style={{ fontSize:11, color:C.textMuted }}>備註：{i.item_note}</div>}
+                    </div>
+                    <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:4, marginLeft:8 }}>
+                      <span style={{ fontSize:12, color:C.blue, fontWeight:500 }}>
+                        NT$ {((i.products?.price||0)*i.quantity).toLocaleString()}
+                      </span>
+                      {renderOwnerTag(owner)}
+                    </div>
+                  </div>
+                  {/* 採購說明欄（手機也要能輸入） */}
+                  {isActionable && (
+                    <div style={{ marginTop:6 }}>
+                      <NoteInput key={`${req.id}-${i.id}`} reqId={req.id} itemId={i.id} defaultNote={i.purchase_note||''} onSave={saveItemNote} />
+                    </div>
+                  )}
+                  {!isActionable && i.purchase_note && (
+                    <div style={{ fontSize:11, color:C.textMuted, marginTop:4 }}>採購說明：{i.purchase_note}</div>
+                  )}
+                </div>
+              )
+            }
+
+            return (
+              <div key={ii} style={{ display:'grid', gridTemplateColumns:COLS, gap:6,
+                padding:'6px 10px', borderLeft:`2px solid ${C.border}`, marginBottom:3, alignItems:'center' }}>
+                <span style={{ fontSize:12, color:C.text }}>{i.products?.name}</span>
+                <span style={{ fontSize:11, color:C.textMuted }}>{i.products?.spec || '-'}</span>
+                <span style={{ fontSize:12, color:C.text, textAlign:'center' }}>×{i.quantity} {i.products?.unit}</span>
+                <span style={{ fontSize:12, color:C.textMuted, textAlign:'center' }}>{i.stock_qty} {i.stock_unit}</span>
+                <span style={{ fontSize:11, color:C.textMuted, textAlign:'center', wordBreak:'break-all' }}>{i.item_note || '-'}</span>
+                <span style={{ fontSize:12, color:C.blue, fontWeight:500, textAlign:'right' }}>NT$ {((i.products?.price||0)*i.quantity).toLocaleString()}</span>
+                {isActionable
+                  ? <NoteInput key={`${req.id}-${i.id}`} reqId={req.id} itemId={i.id} defaultNote={i.purchase_note||''} onSave={saveItemNote} />
+                  : <span style={{ fontSize:11, color:C.textMuted, textAlign:'center' }}>{i.purchase_note || '-'}</span>
+                }
+                <div style={{ display:'flex', justifyContent:'center' }}>{renderOwnerTag(owner)}</div>
+              </div>
+            )
+          })}
+
           {hasMore && (
             <button onClick={() => toggleExpand(req.id)}
-              style={{ background:'transparent', border:`1px solid ${C.border}`, color:C.primaryDark, padding:'4px 12px', borderRadius:20, fontSize:11, cursor:'pointer', marginTop:4 }}>
+              style={{ background:'transparent', border:`1px solid ${C.border}`, color:C.primaryDark,
+                padding:'4px 12px', borderRadius:20, fontSize:11, cursor:'pointer', marginTop:4 }}>
               {isExpanded ? '▲ 收合' : `▼ 展開全部 ${items.length} 項`}
             </button>
           )}
         </div>
 
         {req.status === 'rejected' && req.reject_reason && (
-          <div style={{ background:C.redLight, color:C.red, padding:'6px 10px', borderRadius:6, fontSize:12, marginBottom:10 }}>退回原因：{req.reject_reason}</div>
+          <div style={{ background:C.redLight, color:C.red, padding:'6px 10px', borderRadius:6, fontSize:12, marginBottom:10 }}>
+            退回原因：{req.reject_reason}
+          </div>
         )}
 
+        {/* 操作按鈕 */}
         {req.status === 'manager_approved' && (
           <div>
             <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
-              <button onClick={() => confirmOrder(req)} style={{ background:C.blue, color:C.white, border:'none', padding:'7px 16px', borderRadius:7, fontSize:12, cursor:'pointer' }}>確認訂購</button>
-              <button onClick={() => exportPDF(req, idx)} style={{ background:C.primaryLight, color:C.text, border:`1px solid ${C.border}`, padding:'7px 16px', borderRadius:7, fontSize:12, cursor:'pointer' }}>輸出 PDF</button>
-              <button onClick={() => exportExcel(req, idx)} style={{ background:'#1A7A4A', color:C.white, border:'none', padding:'7px 16px', borderRadius:7, fontSize:12, cursor:'pointer' }}>輸出 Excel</button>
-              <button onClick={() => { setRejectingId(rejectingId === req.id ? null : req.id); setRejectReason('') }} style={{ background:C.white, color:C.red, border:'1px solid #F09595', padding:'7px 16px', borderRadius:7, fontSize:12, cursor:'pointer' }}>退回</button>
+              <button onClick={() => confirmOrder(req)}
+                style={{ flex: isMobile ? 1 : undefined, background:C.blue, color:C.white, border:'none', padding:'8px 16px', borderRadius:7, fontSize:12, cursor:'pointer' }}>
+                確認訂購
+              </button>
+              <button onClick={() => exportPDF(req, idx)}
+                style={{ background:C.primaryLight, color:C.text, border:`1px solid ${C.border}`, padding:'8px 16px', borderRadius:7, fontSize:12, cursor:'pointer' }}>
+                輸出 PDF
+              </button>
+              <button onClick={() => exportExcel(req, idx)}
+                style={{ background:'#1A7A4A', color:C.white, border:'none', padding:'8px 16px', borderRadius:7, fontSize:12, cursor:'pointer' }}>
+                輸出 Excel
+              </button>
+              <button onClick={() => { setRejectingId(rejectingId === req.id ? null : req.id); setRejectReason('') }}
+                style={{ background:C.white, color:C.red, border:'1px solid #F09595', padding:'8px 16px', borderRadius:7, fontSize:12, cursor:'pointer' }}>
+                退回
+              </button>
             </div>
             {rejectingId === req.id && (
               <div style={{ marginTop:10 }}>
-                <textarea value={rejectReason} onChange={e => setRejectReason(e.target.value)} placeholder="請填寫退回原因..." rows={2}
-                  style={{ width:'100%', padding:'8px 10px', border:`1px solid ${C.border}`, borderRadius:7, fontSize:13, resize:'none', color:C.text }} />
+                <textarea value={rejectReason} onChange={e => setRejectReason(e.target.value)}
+                  placeholder="請填寫退回原因..." rows={2}
+                  style={{ width:'100%', padding:'8px 10px', border:`1px solid ${C.border}`, borderRadius:7, fontSize:13, resize:'none', color:C.text, boxSizing:'border-box' }} />
                 <div style={{ display:'flex', gap:8, marginTop:6 }}>
-                  <button onClick={() => rejectOrder(req.id)} style={{ background:C.red, color:C.white, border:'none', padding:'6px 14px', borderRadius:7, fontSize:12, cursor:'pointer' }}>確認退回</button>
-                  <button onClick={() => setRejectingId(null)} style={{ background:C.primaryLight, border:`1px solid ${C.border}`, padding:'6px 14px', borderRadius:7, fontSize:12, cursor:'pointer', color:C.text }}>取消</button>
+                  <button onClick={() => rejectOrder(req.id)}
+                    style={{ flex: isMobile ? 1 : undefined, background:C.red, color:C.white, border:'none', padding:'6px 14px', borderRadius:7, fontSize:12, cursor:'pointer' }}>
+                    確認退回
+                  </button>
+                  <button onClick={() => setRejectingId(null)}
+                    style={{ flex: isMobile ? 1 : undefined, background:C.primaryLight, border:`1px solid ${C.border}`, padding:'6px 14px', borderRadius:7, fontSize:12, cursor:'pointer', color:C.text }}>
+                    取消
+                  </button>
                 </div>
               </div>
             )}
@@ -292,9 +377,15 @@ export default function PurchasingApp({ profile, onLogout }) {
         )}
 
         {req.status === 'ordered' && (
-          <div style={{ display:'flex', gap:8 }}>
-            <button onClick={() => exportPDF(req, idx)} style={{ background:C.primaryLight, color:C.text, border:`1px solid ${C.border}`, padding:'7px 16px', borderRadius:7, fontSize:12, cursor:'pointer' }}>重新輸出 PDF</button>
-            <button onClick={() => exportExcel(req, idx)} style={{ background:'#1A7A4A', color:C.white, border:'none', padding:'7px 16px', borderRadius:7, fontSize:12, cursor:'pointer' }}>重新輸出 Excel</button>
+          <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+            <button onClick={() => exportPDF(req, idx)}
+              style={{ background:C.primaryLight, color:C.text, border:`1px solid ${C.border}`, padding:'8px 16px', borderRadius:7, fontSize:12, cursor:'pointer' }}>
+              重新輸出 PDF
+            </button>
+            <button onClick={() => exportExcel(req, idx)}
+              style={{ background:'#1A7A4A', color:C.white, border:'none', padding:'8px 16px', borderRadius:7, fontSize:12, cursor:'pointer' }}>
+              重新輸出 Excel
+            </button>
           </div>
         )}
       </div>
@@ -303,59 +394,69 @@ export default function PurchasingApp({ profile, onLogout }) {
 
   return (
     <Layout profile={profile} onLogout={onLogout} navItems={navItems} activeNav={nav} onNav={setNav}>
-      {toast && <div style={{ background:C.text, color:'#fff', padding:'10px 16px', borderRadius:8, fontSize:13, marginBottom:16 }}>{toast}</div>}
+      {toast && (
+        <div style={{ background:C.text, color:'#fff', padding:'10px 16px', borderRadius:8, fontSize:13, marginBottom:16 }}>
+          {toast}
+        </div>
+      )}
 
+      {/* ── 統計儀表板 ── */}
       {nav === 'dashboard' && (
         <div>
-          <h2 style={{ fontSize:18, fontWeight:700, marginBottom:16, color:C.text }}>統計儀表板</h2>
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(5,1fr)', gap:10, marginBottom:24 }}>
+          <h2 style={{ fontSize:isMobile?17:18, fontWeight:isMobile?500:700, marginBottom:16, color:C.text }}>統計儀表板</h2>
+          <div style={{ display:'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(5,1fr)', gap:10, marginBottom:24 }}>
             {[
-              { label:'全部', val:stats.all, color:C.text },
-              { label:'待審核', val:stats.pending, color:'#854F0B' },
-              { label:'待採購', val:stats.toOrder, color:C.blue },
-              { label:'已訂購', val:stats.ordered, color:C.green },
-              { label:'退回', val:stats.rejected, color:C.red },
+              { label:'全部',   val:stats.all,      color:C.text },
+              { label:'待審核', val:stats.pending,  color:'#854F0B' },
+              { label:'待採購', val:stats.toOrder,  color:C.blue },
+              { label:'已訂購', val:stats.ordered,  color:C.green },
+              { label:'退回',   val:stats.rejected, color:C.red },
             ].map(s => (
               <div key={s.label} style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:10, padding:'14px 16px' }}>
                 <div style={{ fontSize:11, color:C.textMuted, marginBottom:6 }}>{s.label}</div>
-                <div style={{ fontSize:26, fontWeight:700, color:s.color }}>{s.val}</div>
+                <div style={{ fontSize:isMobile?22:26, fontWeight:700, color:s.color }}>{s.val}</div>
               </div>
             ))}
           </div>
           <h3 style={{ fontSize:14, fontWeight:500, color:C.textMuted, marginBottom:12 }}>近期請購單</h3>
           <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-            {allReqs.slice(0,5).map((req, idx) => <ReqCard key={req.id} req={req} idx={idx} />)}
+            {allReqs.slice(0,5).map((req, idx) => renderReqCard(req, idx))}
           </div>
         </div>
       )}
 
+      {/* ── 待採購 / 全部訂單 ── */}
       {(nav === 'toorder' || nav === 'all') && (
         <div>
-          <h2 style={{ fontSize:18, fontWeight:700, marginBottom:12, color:C.text }}>
+          <h2 style={{ fontSize:isMobile?17:18, fontWeight:isMobile?500:700, marginBottom:12, color:C.text }}>
             {nav === 'toorder' ? `待採購訂單（${stats.toOrder} 件）` : `全部訂單（${stats.all} 件）`}
           </h2>
 
           {/* 篩選列 */}
-          <div style={{ display:'flex', gap:10, marginBottom:16, flexWrap:'wrap', alignItems:'center' }}>
+          <div style={{ display:'flex', gap:8, marginBottom:14,
+            flexDirection: isMobile ? 'column' : 'row',
+            flexWrap: isMobile ? undefined : 'wrap',
+            alignItems: isMobile ? 'stretch' : 'center' }}>
             <input value={filterProduct} onChange={e => setFilterProduct(e.target.value)}
               placeholder="🔍 搜尋品項名稱..."
-              style={{ padding:'7px 12px', border:`1px solid ${C.border}`, borderRadius:7, fontSize:12, color:C.text, width:200 }} />
-            <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+              style={{ padding:'8px 12px', border:`1px solid ${C.border}`, borderRadius:7,
+                fontSize:12, color:C.text, width: isMobile ? '100%' : 200, boxSizing:'border-box' }} />
+            <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
               <span style={{ fontSize:12, color:C.textMuted }}>日期</span>
               <input type="date" value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)}
-                style={{ padding:'7px 10px', border:`1px solid ${C.border}`, borderRadius:7, fontSize:12, color:C.text }} />
+                style={{ flex:1, padding:'8px 10px', border:`1px solid ${C.border}`, borderRadius:7, fontSize:12, color:C.text }} />
               <span style={{ fontSize:12, color:C.textMuted }}>～</span>
               <input type="date" value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)}
-                style={{ padding:'7px 10px', border:`1px solid ${C.border}`, borderRadius:7, fontSize:12, color:C.text }} />
+                style={{ flex:1, padding:'8px 10px', border:`1px solid ${C.border}`, borderRadius:7, fontSize:12, color:C.text }} />
             </div>
             <select value={filterStore} onChange={e => setFilterStore(e.target.value)}
-              style={{ padding:'7px 12px', border:`1px solid ${C.border}`, borderRadius:7, fontSize:12, color:C.text }}>
+              style={{ padding:'8px 12px', border:`1px solid ${C.border}`, borderRadius:7, fontSize:12, color:C.text }}>
               <option value="">所有門市</option>
               {storeOptions.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
             {(filterProduct || filterDateFrom || filterDateTo || filterStore) && (
               <button onClick={() => { setFilterProduct(''); setFilterDateFrom(''); setFilterDateTo(''); setFilterStore('') }}
-                style={{ padding:'7px 12px', border:`1px solid ${C.border}`, borderRadius:7, fontSize:12, color:C.red, background:C.redLight, cursor:'pointer' }}>
+                style={{ padding:'8px 12px', border:`1px solid ${C.border}`, borderRadius:7, fontSize:12, color:C.red, background:C.redLight, cursor:'pointer' }}>
                 清除篩選
               </button>
             )}
@@ -363,24 +464,23 @@ export default function PurchasingApp({ profile, onLogout }) {
 
           {loading && <div style={{ color:C.textMuted, textAlign:'center', padding:'40px 0' }}>載入中...</div>}
           <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-            {displayReqs.length === 0 && !loading && <div style={{ color:C.textMuted, textAlign:'center', padding:'40px 0' }}>目前沒有符合條件的訂單</div>}
-            {displayReqs.map((req, idx) => <ReqCard key={req.id} req={req} idx={idx} />)}
+            {displayReqs.length === 0 && !loading && (
+              <div style={{ color:C.textMuted, textAlign:'center', padding:'40px 0' }}>目前沒有符合條件的訂單</div>
+            )}
+            {displayReqs.map((req, idx) => renderReqCard(req, idx))}
           </div>
         </div>
       )}
-      {nav === 'report' && <ReportPage allReqs={allReqs} />}
+
+      {nav === 'report' && <ReportPage allReqs={allReqs} isMobile={isMobile} />}
     </Layout>
   )
 }
 
-function ReportPage({ allReqs }) {
-  const C = {
-    primary: '#C4B1A0', primaryDark: '#A59482', primaryLight: '#EDE5DC',
-    border: '#D9CEC5', text: '#3D3530', textMuted: '#A59482', white: '#FFFFFF',
-    red: '#B83232', redLight: '#FDEAEA', green: '#1A7A4A', greenLight: '#D9F2E6',
-    blue: '#185FA5',
-  }
-
+/* ══════════════════════════════════════════════════════
+   採購報表（原版保留，加入手機 grid 調整）
+══════════════════════════════════════════════════════ */
+function ReportPage({ allReqs, isMobile }) {
   const [dateFrom, setDateFrom] = React.useState('')
   const [dateTo, setDateTo] = React.useState('')
   const [selectedStores, setSelectedStores] = React.useState([])
@@ -408,22 +508,16 @@ function ReportPage({ allReqs }) {
       const matchStore = selectedStores.length === 0 || selectedStores.includes(req.store_name)
       return matchFrom && matchTo && matchStore
     })
-
     const rows = []
     filtered.forEach(req => {
       req.requisition_items?.forEach(i => {
         const pname = i.products?.name || '-'
         if (selectedProducts.length > 0 && !selectedProducts.includes(pname)) return
         rows.push({
-          date: req.submit_date || '-',
-          store: req.store_name || '-',
-          product: pname,
-          spec: i.products?.spec || '-',
-          unit: i.products?.unit || '-',
-          qty: i.quantity,
-          price: i.products?.price || 0,
-          total: (i.products?.price || 0) * i.quantity,
-          status: req.status,
+          date: req.submit_date || '-', store: req.store_name || '-',
+          product: pname, spec: i.products?.spec || '-', unit: i.products?.unit || '-',
+          qty: i.quantity, price: i.products?.price || 0,
+          total: (i.products?.price || 0) * i.quantity, status: req.status,
         })
       })
     })
@@ -432,32 +526,27 @@ function ReportPage({ allReqs }) {
 
   function exportExcel() {
     if (!reportData || reportData.length === 0) { alert('請先產生報表'); return }
-
     let rows = []
     const label = `日期區間：${dateFrom||'不限'} ～ ${dateTo||'不限'}　門市：${selectedStores.length ? selectedStores.join('、') : '全部'}　品項：${selectedProducts.length ? selectedProducts.join('、') : '全部'}`
-
     if (reportType === 'detail') {
       rows = [
         [label], [],
-        ['日期', '門市', '品項名稱', '規格', '單位', '數量', '單價', '金額'],
-        ...reportData.map(r => [r.date, r.store, r.product, r.spec, r.unit, r.qty, r.price, r.total]),
-        [],
-        ['合計', '', '', '', '', reportData.reduce((s,r)=>s+r.qty,0), '', reportData.reduce((s,r)=>s+r.total,0)]
+        ['日期','門市','品項名稱','規格','單位','數量','單價','金額'],
+        ...reportData.map(r => [r.date,r.store,r.product,r.spec,r.unit,r.qty,r.price,r.total]),
+        [],['合計','','','','',reportData.reduce((s,r)=>s+r.qty,0),'',reportData.reduce((s,r)=>s+r.total,0)]
       ]
     } else if (reportType === 'summary') {
       const map = {}
       reportData.forEach(r => {
         const k = `${r.product}__${r.unit}`
-        if (!map[k]) map[k] = { product: r.product, spec: r.spec, unit: r.unit, qty: 0, total: 0 }
-        map[k].qty += r.qty
-        map[k].total += r.total
+        if (!map[k]) map[k] = { product:r.product, spec:r.spec, unit:r.unit, qty:0, total:0 }
+        map[k].qty += r.qty; map[k].total += r.total
       })
       rows = [
-        [label], [],
-        ['品項名稱', '規格', '單位', '總數量', '總金額'],
-        ...Object.values(map).map(r => [r.product, r.spec, r.unit, r.qty, r.total]),
-        [],
-        ['合計', '', '', Object.values(map).reduce((s,r)=>s+r.qty,0), Object.values(map).reduce((s,r)=>s+r.total,0)]
+        [label],[],
+        ['品項名稱','規格','單位','總數量','總金額'],
+        ...Object.values(map).map(r => [r.product,r.spec,r.unit,r.qty,r.total]),
+        [],['合計','','',Object.values(map).reduce((s,r)=>s+r.qty,0),Object.values(map).reduce((s,r)=>s+r.total,0)]
       ]
     } else if (reportType === 'cross') {
       const stores = [...new Set(reportData.map(r => r.store))].sort()
@@ -468,40 +557,33 @@ function ReportPage({ allReqs }) {
         map[r.product][r.store] = (map[r.product][r.store] || 0) + r.qty
       })
       rows = [
-        [label], [],
-        ['品項名稱', ...stores, '合計'],
-        ...products.map(p => [
-          p,
-          ...stores.map(s => map[p]?.[s] || 0),
-          stores.reduce((sum, s) => sum + (map[p]?.[s] || 0), 0)
-        ]),
-        ['合計', ...stores.map(s => products.reduce((sum,p)=>sum+(map[p]?.[s]||0),0)),
-          reportData.reduce((s,r)=>s+r.qty,0)]
+        [label],[],
+        ['品項名稱',...stores,'合計'],
+        ...products.map(p => [p,...stores.map(s=>map[p]?.[s]||0),stores.reduce((sum,s)=>sum+(map[p]?.[s]||0),0)]),
+        ['合計',...stores.map(s=>products.reduce((sum,p)=>sum+(map[p]?.[s]||0),0)),reportData.reduce((s,r)=>s+r.qty,0)]
       ]
     }
-
     const csv = rows.map(row => row.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n')
     const blob = new Blob(['\uFEFF' + csv], { type:'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    const typeLabel = { detail:'明細表', summary:'彙總表', cross:'交叉分析表' }[reportType]
-    a.download = `採購報表_${typeLabel}_${dateFrom||'全期'}_${dateTo||''}.csv`
+    a.download = `採購報表_${{detail:'明細表',summary:'彙總表',cross:'交叉分析表'}[reportType]}_${dateFrom||'全期'}_${dateTo||''}.csv`
     a.click()
     URL.revokeObjectURL(url)
   }
 
   const detailTotal = reportData ? reportData.reduce((s,r)=>s+r.total,0) : 0
-  const detailQty = reportData ? reportData.reduce((s,r)=>s+r.qty,0) : 0
+  const detailQty   = reportData ? reportData.reduce((s,r)=>s+r.qty,0) : 0
 
   return (
     <div>
-      <h2 style={{ fontSize:18, fontWeight:700, marginBottom:16, color:C.text }}>採購報表</h2>
+      <h2 style={{ fontSize:isMobile?17:18, fontWeight:isMobile?500:700, marginBottom:16, color:C.text }}>採購報表</h2>
 
-      <div style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:12, padding:20, marginBottom:16 }}>
+      <div style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:12, padding:isMobile?14:20, marginBottom:16 }}>
         <div style={{ fontWeight:500, fontSize:13, color:C.text, marginBottom:14 }}>篩選條件</div>
 
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
+        <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap:16 }}>
           <div>
             <label style={{ fontSize:12, color:C.textMuted, display:'block', marginBottom:6 }}>日期區間</label>
             <div style={{ display:'flex', alignItems:'center', gap:8 }}>
@@ -515,13 +597,13 @@ function ReportPage({ allReqs }) {
 
           <div>
             <label style={{ fontSize:12, color:C.textMuted, display:'block', marginBottom:6 }}>報表類型</label>
-            <div style={{ display:'flex', gap:8 }}>
+            <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
               {[['detail','明細表'],['summary','彙總表'],['cross','交叉分析表']].map(([val,label]) => (
                 <button key={val} onClick={() => setReportType(val)}
                   style={{ padding:'6px 14px', borderRadius:7, fontSize:12, cursor:'pointer', border:'1px solid',
-                    background: reportType === val ? C.primary : C.white,
-                    color: reportType === val ? C.white : C.textMuted,
-                    borderColor: reportType === val ? C.primary : C.border }}>
+                    background: reportType===val ? C.primary : C.white,
+                    color: reportType===val ? C.white : C.textMuted,
+                    borderColor: reportType===val ? C.primary : C.border }}>
                   {label}
                 </button>
               ))}
@@ -546,58 +628,50 @@ function ReportPage({ allReqs }) {
           <div>
             <label style={{ fontSize:12, color:C.textMuted, display:'block', marginBottom:6 }}>品項（可複選，不選表示全部）</label>
             <div style={{ position:'relative' }}>
-              <div
-                onClick={() => document.getElementById('product-dropdown').classList.toggle('open')}
-                style={{ padding:'7px 12px', border:`1px solid ${C.border}`, borderRadius:7, fontSize:12, color: selectedProducts.length ? C.text : C.textMuted, cursor:'pointer', background:C.white, userSelect:'none', display:'flex', justifyContent:'space-between', alignItems:'center', minWidth:300 }}>
+              <div onClick={() => document.getElementById('product-dropdown').classList.toggle('open')}
+                style={{ padding:'7px 12px', border:`1px solid ${C.border}`, borderRadius:7, fontSize:12,
+                  color: selectedProducts.length ? C.text : C.textMuted, cursor:'pointer', background:C.white,
+                  userSelect:'none', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
                 <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', flex:1 }}>
                   {selectedProducts.length === 0 ? '全部品項' : `已選 ${selectedProducts.length} 項：${selectedProducts.join('、')}`}
                 </span>
                 <span style={{ marginLeft:8, color:C.textMuted, fontSize:10 }}>▼</span>
               </div>
               <div id="product-dropdown"
-                style={{ display:'none', position:'absolute', top:'100%', left:0, right:0, background:C.white, border:`1px solid ${C.border}`, borderRadius:7, zIndex:100, maxHeight:300, boxShadow:'0 4px 12px rgba(0,0,0,0.1)', marginTop:2 }}
+                style={{ display:'none', position:'absolute', top:'100%', left:0, right:0, background:C.white,
+                  border:`1px solid ${C.border}`, borderRadius:7, zIndex:100, maxHeight:300,
+                  boxShadow:'0 4px 12px rgba(0,0,0,0.1)', marginTop:2 }}
                 className="product-dropdown-menu">
                 <style>{`.product-dropdown-menu.open { display: block !important; }`}</style>
-
-                {/* 搜尋框 */}
                 <div style={{ padding:'8px 10px', borderBottom:`1px solid ${C.border}`, position:'sticky', top:0, background:C.white, zIndex:1 }}>
-                  <input
-                    value={productSearch}
-                    onChange={e => setProductSearch(e.target.value)}
+                  <input value={productSearch} onChange={e => setProductSearch(e.target.value)}
                     onClick={e => e.stopPropagation()}
                     placeholder="🔍 搜尋品項名稱..."
-                    style={{ width:'100%', padding:'6px 10px', border:`1px solid ${C.border}`, borderRadius:6, fontSize:12, color:C.text, outline:'none' }}
-                  />
+                    style={{ width:'100%', padding:'6px 10px', border:`1px solid ${C.border}`, borderRadius:6, fontSize:12, color:C.text, outline:'none', boxSizing:'border-box' }} />
                 </div>
-
-                {/* 全部 / 已選數量 */}
                 <div style={{ padding:'6px 10px', borderBottom:`1px solid ${C.border}`, display:'flex', alignItems:'center', gap:8, background:'#FAF7F5' }}>
                   <button onClick={e => { e.stopPropagation(); setSelectedProducts([]); setProductSearch('') }}
-                    style={{ fontSize:11, padding:'2px 10px', borderRadius:20, border:`1px solid ${C.border}`, cursor:'pointer', background: selectedProducts.length === 0 ? C.blue : C.white, color: selectedProducts.length === 0 ? C.white : C.textMuted }}>
+                    style={{ fontSize:11, padding:'2px 10px', borderRadius:20, border:`1px solid ${C.border}`, cursor:'pointer',
+                      background: selectedProducts.length===0 ? C.blue : C.white,
+                      color: selectedProducts.length===0 ? C.white : C.textMuted }}>
                     全部
                   </button>
                   <span style={{ fontSize:11, color:C.textMuted }}>已選 {selectedProducts.length} 項 / 共 {productOptions.length} 項</span>
-                  {productSearch && (
-                    <span style={{ fontSize:11, color:C.primaryDark }}>搜尋結果：{productOptions.filter(p => p.toLowerCase().includes(productSearch.toLowerCase())).length} 項</span>
-                  )}
                 </div>
-
-                {/* 品項列表 */}
                 <div style={{ overflowY:'auto', maxHeight:200 }}>
-                  {productOptions
-                    .filter(p => !productSearch || p.toLowerCase().includes(productSearch.toLowerCase()))
-                    .map(p => (
-                      <div key={p} onClick={e => { e.stopPropagation(); toggleProduct(p) }}
-                        style={{ padding:'7px 12px', fontSize:12, cursor:'pointer', display:'flex', alignItems:'center', gap:8,
-                          background: selectedProducts.includes(p) ? '#F0F7FF' : C.white,
-                          color: selectedProducts.includes(p) ? C.blue : C.text }}>
-                        <span style={{ width:14, height:14, border:`1.5px solid ${selectedProducts.includes(p) ? C.blue : C.border}`, borderRadius:3, background: selectedProducts.includes(p) ? C.blue : C.white, display:'inline-flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                          {selectedProducts.includes(p) && <span style={{ color:C.white, fontSize:9, lineHeight:1 }}>✓</span>}
-                        </span>
-                        {p}
-                      </div>
-                    ))
-                  }
+                  {productOptions.filter(p => !productSearch || p.toLowerCase().includes(productSearch.toLowerCase())).map(p => (
+                    <div key={p} onClick={e => { e.stopPropagation(); toggleProduct(p) }}
+                      style={{ padding:'7px 12px', fontSize:12, cursor:'pointer', display:'flex', alignItems:'center', gap:8,
+                        background: selectedProducts.includes(p) ? '#F0F7FF' : C.white,
+                        color: selectedProducts.includes(p) ? C.blue : C.text }}>
+                      <span style={{ width:14, height:14, border:`1.5px solid ${selectedProducts.includes(p) ? C.blue : C.border}`, borderRadius:3,
+                        background: selectedProducts.includes(p) ? C.blue : C.white,
+                        display:'inline-flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                        {selectedProducts.includes(p) && <span style={{ color:C.white, fontSize:9, lineHeight:1 }}>✓</span>}
+                      </span>
+                      {p}
+                    </div>
+                  ))}
                   {productOptions.filter(p => !productSearch || p.toLowerCase().includes(productSearch.toLowerCase())).length === 0 && (
                     <div style={{ padding:'16px', textAlign:'center', fontSize:12, color:C.textMuted }}>找不到符合的品項</div>
                   )}
@@ -607,7 +681,7 @@ function ReportPage({ allReqs }) {
           </div>
         </div>
 
-        <div style={{ display:'flex', gap:10, marginTop:16 }}>
+        <div style={{ display:'flex', gap:10, marginTop:16, flexWrap:'wrap' }}>
           <button onClick={generateReport}
             style={{ background:C.primary, color:C.white, border:'none', padding:'9px 24px', borderRadius:8, fontSize:13, cursor:'pointer', fontWeight:500 }}>
             產生報表
@@ -628,23 +702,23 @@ function ReportPage({ allReqs }) {
       </div>
 
       {reportData && (
-        <div style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:12, padding:20 }}>
-          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
-            <div style={{ fontSize:13, fontWeight:500, color:C.text }}>
-              {{ detail:'明細表', summary:'彙總表', cross:'各門市採購量交叉分析表' }[reportType]}
-              <span style={{ fontSize:11, color:C.textMuted, marginLeft:10 }}>
-                共 {reportData.length} 筆　總數量：{detailQty}　總金額：NT$ {detailTotal.toLocaleString()}
-              </span>
-            </div>
+        <div style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:12, padding:isMobile?14:20 }}>
+          <div style={{ fontSize:13, fontWeight:500, color:C.text, marginBottom:14 }}>
+            {{ detail:'明細表', summary:'彙總表', cross:'各門市採購量交叉分析表' }[reportType]}
+            <span style={{ fontSize:11, color:C.textMuted, marginLeft:10 }}>
+              共 {reportData.length} 筆　總數量：{detailQty}　總金額：NT$ {detailTotal.toLocaleString()}
+            </span>
           </div>
 
           {reportType === 'detail' && (
             <div style={{ overflowX:'auto' }}>
               <div style={{ display:'grid', gridTemplateColumns:'100px 120px 1fr 100px 60px 60px 80px 90px', gap:6, padding:'5px 10px', background:C.primaryLight, borderRadius:6, marginBottom:4, fontSize:11, color:C.primaryDark, fontWeight:500, minWidth:700 }}>
-                <span>日期</span><span>門市</span><span>品項名稱</span><span>規格</span><span style={{textAlign:'center'}}>單位</span><span style={{textAlign:'center'}}>數量</span><span style={{textAlign:'right'}}>單價</span><span style={{textAlign:'right'}}>金額</span>
+                <span>日期</span><span>門市</span><span>品項名稱</span><span>規格</span>
+                <span style={{textAlign:'center'}}>單位</span><span style={{textAlign:'center'}}>數量</span>
+                <span style={{textAlign:'right'}}>單價</span><span style={{textAlign:'right'}}>金額</span>
               </div>
               {reportData.map((r, idx) => (
-                <div key={idx} style={{ display:'grid', gridTemplateColumns:'100px 120px 1fr 100px 60px 60px 80px 90px', gap:6, padding:'5px 10px', borderLeft:`2px solid ${C.border}`, marginBottom:2, fontSize:11, color:C.text, minWidth:700, background: idx%2===0?'#FAF7F5':C.white }}>
+                <div key={idx} style={{ display:'grid', gridTemplateColumns:'100px 120px 1fr 100px 60px 60px 80px 90px', gap:6, padding:'5px 10px', borderLeft:`2px solid ${C.border}`, marginBottom:2, fontSize:11, color:C.text, minWidth:700, background:idx%2===0?'#FAF7F5':C.white }}>
                   <span>{r.date}</span><span>{r.store}</span><span>{r.product}</span><span style={{color:C.textMuted}}>{r.spec}</span>
                   <span style={{textAlign:'center'}}>{r.unit}</span><span style={{textAlign:'center'}}>{r.qty}</span>
                   <span style={{textAlign:'right'}}>NT$ {r.price.toLocaleString()}</span>
@@ -673,7 +747,7 @@ function ReportPage({ allReqs }) {
                   <span>品項名稱</span><span>規格</span><span style={{textAlign:'center'}}>單位</span><span style={{textAlign:'center'}}>總數量</span><span style={{textAlign:'right'}}>總金額</span>
                 </div>
                 {rows.map((r, idx) => (
-                  <div key={idx} style={{ display:'grid', gridTemplateColumns:'1fr 120px 60px 80px 100px', gap:6, padding:'5px 10px', borderLeft:`2px solid ${C.border}`, marginBottom:2, fontSize:11, color:C.text, background: idx%2===0?'#FAF7F5':C.white }}>
+                  <div key={idx} style={{ display:'grid', gridTemplateColumns:'1fr 120px 60px 80px 100px', gap:6, padding:'5px 10px', borderLeft:`2px solid ${C.border}`, marginBottom:2, fontSize:11, color:C.text, background:idx%2===0?'#FAF7F5':C.white }}>
                     <span>{r.product}</span><span style={{color:C.textMuted}}>{r.spec}</span>
                     <span style={{textAlign:'center'}}>{r.unit}</span>
                     <span style={{textAlign:'center',color:C.blue,fontWeight:500}}>{r.qty}</span>
@@ -706,9 +780,9 @@ function ReportPage({ allReqs }) {
                   <span style={{textAlign:'center'}}>合計</span>
                 </div>
                 {products.map((p, idx) => (
-                  <div key={idx} style={{ display:'grid', gridTemplateColumns:colW, gap:6, padding:'5px 10px', borderLeft:`2px solid ${C.border}`, marginBottom:2, fontSize:11, color:C.text, background: idx%2===0?'#FAF7F5':C.white, minWidth:400 }}>
+                  <div key={idx} style={{ display:'grid', gridTemplateColumns:colW, gap:6, padding:'5px 10px', borderLeft:`2px solid ${C.border}`, marginBottom:2, fontSize:11, color:C.text, background:idx%2===0?'#FAF7F5':C.white, minWidth:400 }}>
                     <span>{p}</span>
-                    {stores.map(s => <span key={s} style={{textAlign:'center',color: map[p]?.[s] ? C.blue : C.textMuted}}>{map[p]?.[s] || '-'}</span>)}
+                    {stores.map(s => <span key={s} style={{textAlign:'center',color:map[p]?.[s]?C.blue:C.textMuted}}>{map[p]?.[s]||'-'}</span>)}
                     <span style={{textAlign:'center',fontWeight:500,color:C.blue}}>{stores.reduce((sum,s)=>sum+(map[p]?.[s]||0),0)}</span>
                   </div>
                 ))}
