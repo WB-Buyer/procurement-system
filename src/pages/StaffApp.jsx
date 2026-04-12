@@ -55,6 +55,11 @@ export default function StaffApp({ profile, onLogout }) {
   const [submitting, setSubmitting] = useState(false)
   const [toast, setToast] = useState('')
   const [owners, setOwners] = useState({})
+  const [expandedReqs, setExpandedReqs] = useState({})
+
+  function toggleReqExpand(id) {
+    setExpandedReqs(prev => ({ ...prev, [id]: !prev[id] }))
+  }
 
   useEffect(() => { fetchProducts(); fetchOwners(); fetchCart() }, [])
   useEffect(() => { if (nav === 'myreqs') fetchMyReqs() }, [nav])
@@ -509,29 +514,46 @@ export default function StaffApp({ profile, onLogout }) {
                     <span style={{ background:s.bg, color:s.color, padding:'3px 10px',
                       borderRadius:20, fontSize:11, fontWeight:500, whiteSpace:'nowrap' }}>{label}</span>
                   </div>
-                  <div style={{ marginBottom: req.status === 'rejected' ? 10 : 0 }}>
-                    {!isMobile && <div style={{ fontSize:12, color:C.textMuted, marginBottom:4 }}>品項：</div>}
-                    {req.requisition_items?.map((i, ii) => {
-                      const owner = owners[`${req.store_name}__${i.product_id}`]
-                      return (
-                        <div key={ii} style={{ display:'flex', justifyContent:'space-between', alignItems:'center',
-                          fontSize:12, color:C.text,
-                          padding:isMobile?'5px 0 5px 10px':'4px 0 4px 12px',
-                          borderLeft:`2px solid ${C.border}`, marginBottom:3 }}>
-                          <span>{i.products?.name} ×{i.quantity} {i.products?.unit}</span>
-                          {owner && (
-                            <span style={{ display:'inline-flex', alignItems:'center', gap:4,
-                              background:C.primaryLight, color:C.primaryDark,
-                              padding:'2px 8px', borderRadius:20, fontSize:10, fontWeight:500,
-                              flexShrink:0, marginLeft:8 }}>
-                              <span style={{ width:5, height:5, borderRadius:'50%', background:C.primaryDark, display:'inline-block' }}></span>
-                              {owner}
-                            </span>
-                          )}
-                        </div>
-                      )
-                    })}
-                  </div>
+                  {(() => {
+                    const LIMIT = 5
+                    const allItems = req.requisition_items || []
+                    const isExpanded = expandedReqs[req.id]
+                    const visibleItems = isExpanded ? allItems : allItems.slice(0, LIMIT)
+                    const hasMore = allItems.length > LIMIT
+                    return (
+                      <div style={{ marginBottom: req.status === 'rejected' ? 10 : 0 }}>
+                        {!isMobile && <div style={{ fontSize:12, color:C.textMuted, marginBottom:4 }}>品項：</div>}
+                        {visibleItems.map((i, ii) => {
+                          const owner = owners[`${req.store_name}__${i.product_id}`]
+                          return (
+                            <div key={ii} style={{ display:'flex', justifyContent:'space-between', alignItems:'center',
+                              fontSize:12, color:C.text,
+                              padding:isMobile?'5px 0 5px 10px':'4px 0 4px 12px',
+                              borderLeft:`2px solid ${C.border}`, marginBottom:3 }}>
+                              <span>{i.products?.name} ×{i.quantity} {i.products?.unit}</span>
+                              {owner && (
+                                <span style={{ display:'inline-flex', alignItems:'center', gap:4,
+                                  background:C.primaryLight, color:C.primaryDark,
+                                  padding:'2px 8px', borderRadius:20, fontSize:10, fontWeight:500,
+                                  flexShrink:0, marginLeft:8 }}>
+                                  <span style={{ width:5, height:5, borderRadius:'50%', background:C.primaryDark, display:'inline-block' }}></span>
+                                  {owner}
+                                </span>
+                              )}
+                            </div>
+                          )
+                        })}
+                        {hasMore && (
+                          <button onClick={() => toggleReqExpand(req.id)}
+                            style={{ background:'transparent', border:`1px solid ${C.border}`,
+                              color:C.primaryDark, padding:'4px 12px', borderRadius:20,
+                              fontSize:11, cursor:'pointer', marginTop:4 }}>
+                            {isExpanded ? `▲ 收合` : `▼ 展開全部 ${allItems.length} 項`}
+                          </button>
+                        )}
+                      </div>
+                    )
+                  })()}
                   {req.status === 'rejected' && req.reject_reason && (
                     <div style={{ background:C.redLight, color:C.red, padding:'6px 10px',
                       borderRadius:6, fontSize:12, marginBottom:10 }}>
