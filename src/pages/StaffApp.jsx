@@ -317,6 +317,8 @@ export default function StaffApp({ profile, onLogout }) {
                       <div style={{ fontSize:13, fontWeight:500, color:C.text, lineHeight:1.4, marginBottom:4 }}>{p.name}</div>
                       <div style={{ fontSize:11, color:C.textMuted }}>廠牌：{p.brand || '-'}</div>
                       <div style={{ fontSize:11, color:C.textMuted }}>規格：{p.spec || '-'}</div>
+                      <div style={{ fontSize:11, color:C.textMuted }}>效期：{p.expiry_info || '-'}</div>
+                      {p.extra_note && <div style={{ fontSize:11, color:C.textMuted }}>補充：{p.extra_note}</div>}
                     </div>
                     <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginTop:8 }}>
                       <span style={{ fontSize:11, color:C.primaryDark }}>單位：{p.unit}</span>
