@@ -40,18 +40,19 @@ function NoteInput({ reqId, itemId, defaultNote, onSave }) {
   )
 }
 
-function useIsMobile() {
-  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768)
+function useDeviceType() {
+  const get = () => window.innerWidth < 1024 ? 'mobile' : 'desktop'
+  const [device, setDevice] = useState(get)
   useEffect(() => {
-    const handler = () => setIsMobile(window.innerWidth < 768)
+    const handler = () => setDevice(get())
     window.addEventListener('resize', handler)
     return () => window.removeEventListener('resize', handler)
   }, [])
-  return isMobile
+  return device
 }
 
 export default function PurchasingApp({ profile, onLogout }) {
-  const isMobile = useIsMobile()
+  const isMobile = useDeviceType() === 'mobile'
 
   const [nav, setNav] = useState('dashboard')
   const [allReqs, setAllReqs] = useState([])
@@ -124,9 +125,35 @@ export default function PurchasingApp({ profile, onLogout }) {
   function exportPDF(req, seqIdx) {
     const total = calcTotal(req)
     const orderId = generateOrderId(req.created_at, seqIdx + 1)
-    const printWindow = window.open('', '_blank')
-    printWindow.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>訂購單 ${orderId}</title><style>body{font-family:'Microsoft JhengHei','微軟正黑體',Arial,sans-serif;padding:40px;color:#3D3530;}h1{font-size:22px;margin-bottom:6px;color:#A59482;}.info{font-size:13px;color:#A59482;margin-bottom:24px;line-height:2;}table{width:100%;border-collapse:collapse;font-size:12px;}th{background:#C4B1A0;color:#fff;padding:8px 10px;text-align:left;}td{padding:8px 10px;border-bottom:1px solid #D9CEC5;color:#3D3530;}tr:nth-child(even) td{background:#F7F3EF;}.total{text-align:right;font-size:15px;font-weight:bold;color:#A59482;margin-top:16px;}.footer{margin-top:40px;font-size:12px;color:#A59482;border-top:1px solid #D9CEC5;padding-top:12px;}@media print{button{display:none;}}</style></head><body><h1>晶緻集團請購系統 — 訂購單</h1><div class="info">成立編號：${orderId}<br>門市：${req.store_name || '-'}<br>送單日期：${req.submit_date || '-'}<br>簽核時間：${formatDateTime(req.approved_at)}<br>狀態：已訂購</div><table><thead><tr><th>品項名稱</th><th>規格</th><th>採購數量</th><th>庫存數量</th><th>備註/請購原因</th><th>單價</th><th>小計</th><th>採購說明</th><th>負責人</th></tr></thead><tbody>${req.requisition_items?.map(i => `<tr><td>${i.products?.name||'-'}</td><td>${i.products?.spec||'-'}</td><td>x${i.quantity} ${i.products?.unit||'-'}</td><td>${i.stock_qty} ${i.stock_unit}</td><td>${i.item_note||'-'}</td><td>NT$ ${(i.products?.price||0).toLocaleString()}</td><td>NT$ ${((i.products?.price||0)*i.quantity).toLocaleString()}</td><td>${i.purchase_note||'-'}</td><td>${owners[req.store_name+'__'+i.product_id]||'-'}</td></tr>`).join('')||''}</tbody></table><div class="total">總金額：NT$ ${total.toLocaleString()}</div><div class="footer">列印日期：${new Date().toLocaleDateString('zh-TW')}</div><br><button onclick="window.print()" style="background:#C4B1A0;color:#fff;border:none;padding:10px 24px;border-radius:8px;font-size:14px;cursor:pointer;">列印 / 儲存 PDF</button></body></html>`)
-    printWindow.document.close()
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>訂購單 ${orderId}</title><style>body{font-family:'Microsoft JhengHei','微軟正黑體',Arial,sans-serif;padding:40px;color:#3D3530;}h1{font-size:22px;margin-bottom:6px;color:#A59482;}.info{font-size:13px;color:#A59482;margin-bottom:24px;line-height:2;}table{width:100%;border-collapse:collapse;font-size:12px;}th{background:#C4B1A0;color:#fff;padding:8px 10px;text-align:left;}td{padding:8px 10px;border-bottom:1px solid #D9CEC5;color:#3D3530;}tr:nth-child(even) td{background:#F7F3EF;}.total{text-align:right;font-size:15px;font-weight:bold;color:#A59482;margin-top:16px;}.footer{margin-top:40px;font-size:12px;color:#A59482;border-top:1px solid #D9CEC5;padding-top:12px;}@media print{button{display:none;}}</style></head><body><h1>晶緻集團請購系統 — 訂購單</h1><div class="info">成立編號：${orderId}<br>門市：${req.store_name || '-'}<br>送單日期：${req.submit_date || '-'}<br>簽核時間：${formatDateTime(req.approved_at)}<br>狀態：已訂購</div><table><thead><tr><th>品項名稱</th><th>規格</th><th>採購數量</th><th>庫存數量</th><th>備註/請購原因</th><th>單價</th><th>小計</th><th>採購說明</th><th>負責人</th></tr></thead><tbody>${req.requisition_items?.map(i => `<tr><td>${i.products?.name||'-'}</td><td>${i.products?.spec||'-'}</td><td>x${i.quantity} ${i.products?.unit||'-'}</td><td>${i.stock_qty} ${i.stock_unit}</td><td>${i.item_note||'-'}</td><td>NT$ ${(i.products?.price||0).toLocaleString()}</td><td>NT$ ${((i.products?.price||0)*i.quantity).toLocaleString()}</td><td>${i.purchase_note||'-'}</td><td>${owners[req.store_name+'__'+i.product_id]||'-'}</td></tr>`).join('')||''}</tbody></table><div class="total">總金額：NT$ ${total.toLocaleString()}</div><div class="footer">列印日期：${new Date().toLocaleDateString('zh-TW')}</div></body></html>`
+
+    // 移除舊的 iframe（如果存在）
+    const oldFrame = document.getElementById('print-frame')
+    if (oldFrame) oldFrame.remove()
+
+    // 建立隱藏 iframe，在同頁列印，避免 PWA 模式跳離 app
+    const iframe = document.createElement('iframe')
+    iframe.id = 'print-frame'
+    iframe.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:9999;background:#fff;'
+    document.body.appendChild(iframe)
+
+    iframe.contentDocument.open()
+    iframe.contentDocument.write(html)
+    iframe.contentDocument.close()
+
+    // 加入關閉按鈕與列印按鈕
+    const closeBtn = iframe.contentDocument.createElement('button')
+    closeBtn.textContent = '✕ 關閉'
+    closeBtn.style.cssText = 'position:fixed;top:16px;right:16px;background:#A59482;color:#fff;border:none;padding:8px 18px;border-radius:8px;font-size:14px;cursor:pointer;z-index:10000;'
+    closeBtn.onclick = () => iframe.remove()
+
+    const printBtn = iframe.contentDocument.createElement('button')
+    printBtn.textContent = '列印 / 儲存 PDF'
+    printBtn.style.cssText = 'position:fixed;top:16px;right:110px;background:#C4B1A0;color:#fff;border:none;padding:8px 18px;border-radius:8px;font-size:14px;cursor:pointer;z-index:10000;'
+    printBtn.onclick = () => iframe.contentWindow.print()
+
+    iframe.contentDocument.body.appendChild(printBtn)
+    iframe.contentDocument.body.appendChild(closeBtn)
   }
 
   function exportExcel(req, seqIdx) {
