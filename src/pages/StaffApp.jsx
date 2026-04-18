@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import Layout from '../components/Layout'
 
-const CATEGORIES = ['全部', '保養品', '美容耗材', '微整針劑', '藥品', '醫療耗材', '手術耗材', '手術器械']
+const CATEGORIES = ['全部', '管制藥', '口服藥', '針劑', '藥膏', '縫線', '電燒', '消毒液', '針具', '美白針', '保健食品', '消脂針', '客製品', '電音波', '蓓拉瑪雅', '制服', '其它']
 
 const C = {
   primary: '#C4B1A0', primaryDark: '#A59482', primaryLight: '#EDE5DC',
