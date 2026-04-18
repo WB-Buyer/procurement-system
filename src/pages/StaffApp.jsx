@@ -26,18 +26,21 @@ async function sendNotification(subject, body) {
   }
 }
 
-function useIsMobile() {
-  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768)
+function useDeviceType() {
+  const get = () => window.innerWidth < 768 ? 'mobile' : window.innerWidth < 1024 ? 'tablet' : 'desktop'
+  const [device, setDevice] = useState(get)
   useEffect(() => {
-    const handler = () => setIsMobile(window.innerWidth < 768)
+    const handler = () => setDevice(get())
     window.addEventListener('resize', handler)
     return () => window.removeEventListener('resize', handler)
   }, [])
-  return isMobile
+  return device
 }
 
 export default function StaffApp({ profile, onLogout }) {
-  const isMobile = useIsMobile()
+  const device = useDeviceType()
+  const isMobile = device === 'mobile'
+  const isMobileOrTablet = device === 'mobile' || device === 'tablet'
 
   const [nav, setNav] = useState('catalog')
   const [products, setProducts] = useState([])
@@ -318,7 +321,7 @@ export default function StaffApp({ profile, onLogout }) {
                       <div style={{ fontSize:11, color:C.textMuted }}>廠牌：{p.brand || '-'}</div>
                       <div style={{ fontSize:11, color:C.textMuted }}>規格：{p.spec || '-'}</div>
                       <div style={{ fontSize:11, color:C.textMuted }}>效期：{p.expiry_info || '-'}</div>
-                      {p.extra_note && <div style={{ fontSize:11, color:C.textMuted }}>補充：{p.extra_note}</div>}
+                      {p.extra_note && <div style={{ fontSize:11, color:C.textMuted }}>補充說明：{p.extra_note}</div>}
                     </div>
                     <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginTop:8 }}>
                       <span style={{ fontSize:11, color:C.primaryDark }}>單位：{p.unit}</span>
