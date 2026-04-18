@@ -37,10 +37,12 @@ export default function Layout({ profile, onLogout, navItems, activeNav, onNav, 
     <div style={{ display:'flex', flexDirection:'column', height:'100vh', overflow:'hidden' }}>
       <div style={{ background:C.primaryLight, padding:'0 20px', display:'flex', alignItems:'center', justifyContent:'space-between', height:52, flexShrink:0, borderBottom:`1px solid ${C.border}` }}>
         <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-          <button onClick={() => setCollapsed(p => !p)}
-            style={{ background:'transparent', border:'none', color:C.primaryDark, cursor:'pointer', padding:'4px 6px', borderRadius:6, fontSize:18, lineHeight:1, display:'flex', alignItems:'center' }}>
-            {collapsed ? '☰' : '✕'}
-          </button>
+          {!showBottomNav && (
+            <button onClick={() => setCollapsed(p => !p)}
+              style={{ background:'transparent', border:'none', color:C.primaryDark, cursor:'pointer', padding:'4px 6px', borderRadius:6, fontSize:18, lineHeight:1, display:'flex', alignItems:'center' }}>
+              {collapsed ? '☰' : '✕'}
+            </button>
+          )}
           <div onClick={() => onNav(homeNav[profile?.role] || 'catalog')}
             style={{ display:'flex', alignItems:'center', gap:10, cursor:'pointer' }}>
             <div style={{ width:36, height:36, borderRadius:'50%', overflow:'hidden', background:'transparent', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
@@ -63,33 +65,35 @@ export default function Layout({ profile, onLogout, navItems, activeNav, onNav, 
       </div>
 
       <div style={{ display:'flex', flex:1, overflow:'hidden' }}>
-        <div style={{
-          width: collapsed ? 0 : 180,
-          minWidth: collapsed ? 0 : 180,
-          background: C.sidebar,
-          borderRight: `1px solid ${C.border}`,
-          padding: collapsed ? 0 : '12px 0',
-          flexShrink:0, overflowY:'auto', overflowX:'hidden',
-          transition:'all .2s ease'
-        }}>
-          {!collapsed && navItems.map(item => (
-            <div key={item.id} onClick={() => onNav(item.id)}
-              style={{
-                padding:'10px 16px', display:'flex', alignItems:'center', gap:10, cursor:'pointer',
-                background: activeNav === item.id ? C.activeBg : 'transparent',
-                borderLeft: activeNav === item.id ? `3px solid ${C.primary}` : '3px solid transparent',
-                color: activeNav === item.id ? C.primaryDark : C.textMuted,
-                fontWeight: activeNav === item.id ? 500 : 400,
-                fontSize:13, transition:'all .15s', whiteSpace:'nowrap'
-              }}>
-              <span style={{ fontSize:16 }}>{item.icon}</span>
-              <span>{item.label}</span>
-              {item.badge > 0 && (
-                <span style={{ marginLeft:'auto', background:C.primary, color:'#fff', borderRadius:10, padding:'1px 7px', fontSize:10 }}>{item.badge}</span>
-              )}
-            </div>
-          ))}
-        </div>
+        {!showBottomNav && (
+          <div style={{
+            width: collapsed ? 0 : 180,
+            minWidth: collapsed ? 0 : 180,
+            background: C.sidebar,
+            borderRight: `1px solid ${C.border}`,
+            padding: collapsed ? 0 : '12px 0',
+            flexShrink:0, overflowY:'auto', overflowX:'hidden',
+            transition:'all .2s ease'
+          }}>
+            {!collapsed && navItems.map(item => (
+              <div key={item.id} onClick={() => onNav(item.id)}
+                style={{
+                  padding:'10px 16px', display:'flex', alignItems:'center', gap:10, cursor:'pointer',
+                  background: activeNav === item.id ? C.activeBg : 'transparent',
+                  borderLeft: activeNav === item.id ? `3px solid ${C.primary}` : '3px solid transparent',
+                  color: activeNav === item.id ? C.primaryDark : C.textMuted,
+                  fontWeight: activeNav === item.id ? 500 : 400,
+                  fontSize:13, transition:'all .15s', whiteSpace:'nowrap'
+                }}>
+                <span style={{ fontSize:16 }}>{item.icon}</span>
+                <span>{item.label}</span>
+                {item.badge > 0 && (
+                  <span style={{ marginLeft:'auto', background:C.primary, color:'#fff', borderRadius:10, padding:'1px 7px', fontSize:10 }}>{item.badge}</span>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
 
         <div style={{ flex:1, overflowY:'auto', padding:24, background:'#FAF7F5', paddingBottom: showBottomNav ? 72 : 24 }}>
           {children}
